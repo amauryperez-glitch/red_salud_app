@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import opciones, etiqueta %}
+{% block titulo %}Personal{% endblock %}
+{% block contenido %}
+<div class="encabezado">
+  <div><h1 class="titulo">Personal y usuarios</h1><p class="sub">Médicos, laboratorio, logística y coordinadores de la red</p></div>
+  <a class="btn" href="{{ url_for('personal_nuevo') }}">+ Registrar personal</a>
+</div>
+
+<form class="filtros" method="GET">
+  <input type="search" name="q" value="{{ f.q }}" placeholder="Nombre o cédula">
+  <select name="institucion">{{ opciones(instituciones, f.institucion, 'Todas las instituciones') }}</select>
+  <select name="cargo">{{ opciones(cargos, f.cargo, 'Todos los cargos') }}</select>
+  <select name="estado">{{ opciones(estados_personal, f.estado, 'Todos los estados') }}</select>
+  <button class="btn btn-sec" type="submit">Filtrar</button>
+  <a class="btn btn-sec" href="{{ url_for('personal') }}">Limpiar</a>
+</form>
+
+<p class="nota">{{ personal|length }} persona(s). Usuario vacío = todavía no tiene cuenta (LEFT JOIN personal → usuarios).</p>
+<div class="tabla"><table>
+  <tr><th>Id</th><th>Nombre</th><th>Cargo</th><th>Institución</th><th>Cédula</th><th>Estado</th><th>Usuario</th><th></th></tr>
+  {% for p in personal %}
+  <tr>
+    <td>{{ p.id_personal }}</td><td>{{ p.nombre }}</td><td>{{ p.cargo }}</td><td>{{ p.institucion }}</td>
+    <td>{{ p.cedula_profesional or '' }}</td><td>{{ etiqueta(p.estado) }}</td>
+    <td>{% if p.usuario_login %}{{ p.usuario_login }} {{ etiqueta(p.estado_usuario) }}{% else %}<span class="nota">Sin usuario</span>{% endif %}</td>
+    <td class="acciones-fila">
+      <a class="btn btn-sec btn-chico" href="{{ url_for('personal_detalle', id_personal=p.id_personal) }}">Ver</a>
+      <a class="btn btn-sec btn-chico" href="{{ url_for('personal_editar', id_personal=p.id_personal) }}">Editar</a>
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="8" class="vacio">No hay personal con esos filtros.</td></tr>
+  {% endfor %}
+</table></div>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import opciones_nombre, etiqueta %}
+{% block titulo %}Traslados{% endblock %}
+{% block contenido %}
+<h1 class="titulo">Traslados</h1>
+<p class="sub">Historial de traslados con su estado, lugar de salida y de llegada (vista_traslados)</p>
+
+<form class="filtros" method="GET">
+  <select name="estado">{{ opciones_nombre(estados_traslado, estado, 'Todos los estados') }}</select>
+  <button class="btn btn-sec" type="submit">Filtrar</button>
+</form>
+
+<div class="tabla"><table>
+  <tr><th>Traslado</th><th>Salida de</th><th>Llega a</th><th>Medio</th><th>Salió</th><th>Llegada estimada</th><th>Llegó</th><th>Estado</th></tr>
+  {% for t in traslados %}
+  <tr><td>{{ t.id_traslado }}</td><td>{{ t.lugar_salida }}</td><td>{{ t.lugar_llegada }}</td><td>{{ t.medio_transporte }}</td>
+      <td>{{ t.fecha_salida|fechahora }}</td><td>{{ t.fecha_estimada_llegada|fechahora }}</td><td>{{ t.fecha_llegada|fechahora }}</td>
+      <td>{{ etiqueta(t.estado) }}</td></tr>
+  {% else %}
+  <tr><td colspan="8" class="vacio">No hay traslados.</td></tr>
+  {% endfor %}
+</table></div>
+{% endblock %}

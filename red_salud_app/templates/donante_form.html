@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import opciones, campos_persona %}
+{% block titulo %}{{ 'Editar donante' if donante else 'Registrar donante' }}{% endblock %}
+{% block contenido %}
+<h1 class="titulo">{{ 'Editar donante ' ~ donante.id_donante if donante else 'Registrar donante' }}</h1>
+<p class="sub">{% if donante %}Modifica los datos del donante{% else %}El donante debe tener entre 18 y 65 años. Se registra en tu institución.{% endif %}</p>
+
+<div class="panel formulario">
+<form method="POST" class="validar">
+  <div class="campos">
+    {{ campos_persona(valores, sexos, 18 if not donante else None, 65 if not donante else None) }}
+    <div><label for="id_tipo_sanguineo">Tipo sanguíneo *</label>
+         <select id="id_tipo_sanguineo" name="id_tipo_sanguineo" required>{{ opciones(tipos_sangre, valores.id_tipo_sanguineo, 'Selecciona') }}</select>
+         {% if donante and donante.donaciones %}<div class="ayuda">Tiene {{ donante.donaciones }} donación(es): el tipo ya no se puede cambiar.</div>{% endif %}</div>
+    {% if donante %}
+    <div><label for="id_estado_donante">Estado *</label>
+         <select id="id_estado_donante" name="id_estado_donante" required>{{ opciones(estados_donante, valores.id_estado_donante) }}</select>
+         <div class="ayuda">Activo = apto para donar; Diferido = no apto por ahora.</div></div>
+    {% endif %}
+  </div>
+  <button class="btn" type="submit">Guardar</button>
+  <a class="btn btn-sec" href="{{ url_for('donante_detalle', id_donante=donante.id_donante) if donante else url_for('donantes') }}">Cancelar</a>
+</form>
+</div>
+{% endblock %}

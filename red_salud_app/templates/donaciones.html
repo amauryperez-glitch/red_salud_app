@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import opciones, etiqueta %}
+{% block titulo %}Donaciones{% endblock %}
+{% block contenido %}
+<h1 class="titulo">Donaciones y laboratorio</h1>
+<p class="sub">Registro de donaciones, resultados de laboratorio y separación en componentes</p>
+
+{% if tiene('Registrar donaciones') and 'Donación de sangre' in session['servicios'] %}
+<details class="nuevo">
+  <summary>+ Registrar donación</summary>
+  <div class="cuerpo">
+  <form action="{{ url_for('donacion_registrar') }}" method="POST" class="validar">
+    <div class="campos">
+      <div><label for="id_donante">Donante (solo Activos) *</label>
+           <select id="id_donante" name="id_donante" required>{{ opciones(donantes_activos, None, 'Selecciona') }}</select></div>
+      <div><label for="volumen_ml">Volumen (ml) *</label>
+           <input type="number" id="volumen_ml" name="volumen_ml" value="450" min="400" max="500" required></div>
+      <div><label for="folio_consentimiento">Folio del consentimiento informado *</label>
+           <input type="text" id="folio_consentimiento" name="folio_consentimiento" maxlength="50" required></div>
+      <div><label for="observaciones">Observaciones</label>
+           <input type="text" id="observaciones" name="observaciones"></div>
+    </div>
+    <p class="ayuda">Se registra en tu institución: {{ session['institucion'] }}. Deben pasar 56 días entre donaciones.</p>
+    <button class="btn" type="submit">Guardar</button>
+  </form>
+  </div>
+</details>
+{% endif %}
+
+<form class="filtros" method="GET">
+  <select name="estado">{{ opciones(estados_donacion, estado, 'Todos los estados') }}</select>
+  <button class="btn btn-sec" type="submit">Filtrar</button>
+</form>
+
+<div class="tabla"><table>
+  <tr><th>Id</th><th>Donante</th><th>Tipo</th><th>Institución</th><th>Fecha</th><th>ml</th><th>Estado</th><th>Acción</th></tr>
+  {% for d in donaciones %}
+  <tr>
+    <td>{{ d.id_donacion }}</td>
+    <td>{% if tiene('Registrar donaciones') %}<a href="{{ url_for('donante_detalle', id_donante=d.id_donante) }}">{{ d.donante }}</a>{% else %}{{ d.donante }}{% endif %}</td>
+    <td><b>{{ d.tipo_sangre }}</b></td>
+    <td>{{ d.institucion }}</td>
+    <td>{{ d.fecha_hora_inicio|fechahora }}</td>
+    <td>{{ d.volumen_ml or '' }}</td>
+    <td>{{ etiqueta(d.estado) }}</td>
+    <td>
+      {% if d.estado == 'Pendiente' and tiene('Validar resultados de laboratorio') %}
+      <details class="accion"><summary>Resultado</summary>
+        <div class="caja-accion">
+        <form action="{{ url_for('donacion_resultado') }}" method="POST">
+          <input type="hidden" name="id_donacion" value="{{ d.id_donacion }}">
+          {% for campo, texto in [('vih','VIH'), ('hepatitis_b','Hepatitis B'), ('hepatitis_c','Hepatitis C'), ('sifilis','Sífilis')] %}
+          <label>{{ texto }}</label>
+          <select name="{{ campo }}"><option value="No reactivo">No reactivo</option><option value="Reactivo">Reactivo</option></select>
+          {% endfor %}
+          <button class="btn btn-chico separado" type="submit">Guardar resultado</button>
+        </form>
+        </div>
+      </details>
+      {% endif %}
+      {% if d.estado == 'Aceptada' and tiene('Registrar estudios') %}
+      <form class="linea" action="{{ url_for('donacion_fraccionar') }}" method="POST">
+        <input type="hidden" name="id_donacion" value="{{ d.id_donacion }}">
+        <button class="btn btn-chico" type="submit">Fraccionar</button>
+      </form>
+      {% endif %}
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="8" class="vacio">No hay donaciones con ese filtro.</td></tr>
+  {% endfor %}
+</table></div>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import opciones, etiqueta %}
+{% block titulo %}Donantes{% endblock %}
+{% block contenido %}
+<div class="encabezado">
+  <div><h1 class="titulo">Donantes</h1><p class="sub">Registro, consulta, modificación y baja de donantes</p></div>
+  <a class="btn" href="{{ url_for('donante_nuevo') }}">+ Registrar donante</a>
+</div>
+
+<form class="filtros" method="GET">
+  <input type="search" name="q" value="{{ q }}" placeholder="Buscar por nombre o id">
+  <select name="tipo">{{ opciones(tipos_sangre, tipo, 'Todos los tipos') }}</select>
+  <select name="estado">{{ opciones(estados_donante, estado, 'Todos los estados') }}</select>
+  <button class="btn btn-sec" type="submit">Filtrar</button>
+  <a class="btn btn-sec" href="{{ url_for('donantes') }}">Limpiar</a>
+</form>
+
+<p class="nota">{{ donantes|length }} donante(s)</p>
+<div class="tabla"><table>
+  <tr><th>Id</th><th>Nombre</th><th>Tipo</th><th>Edad</th><th>Estado</th><th>Correo</th><th>Última donación</th><th></th></tr>
+  {% for d in donantes %}
+  <tr>
+    <td>{{ d.id_donante }}</td>
+    <td>{{ d.nombre }}</td>
+    <td><b>{{ d.tipo_sangre }}</b></td>
+    <td>{{ d.edad }}</td>
+    <td>{{ etiqueta(d.estado) }}</td>
+    <td>{{ d.correo or '' }}</td>
+    <td>{{ d.ultima|fecha or 'Nunca' }}</td>
+    <td class="acciones-fila">
+      <a class="btn btn-sec btn-chico" href="{{ url_for('donante_detalle', id_donante=d.id_donante) }}">Ver</a>
+      <a class="btn btn-sec btn-chico" href="{{ url_for('donante_editar', id_donante=d.id_donante) }}">Editar</a>
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="8" class="vacio">No hay donantes con esos filtros.</td></tr>
+  {% endfor %}
+</table></div>
+{% endblock %}

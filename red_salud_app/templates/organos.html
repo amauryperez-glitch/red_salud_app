@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import opciones, etiqueta %}
+{% block titulo %}Órganos{% endblock %}
+{% block contenido %}
+<h1 class="titulo">Órganos</h1>
+<p class="sub">Órganos en la red y su evaluación de viabilidad</p>
+
+{% if 'Procuración de órganos' in session['servicios'] %}
+<details class="nuevo">
+  <summary>+ Registrar órgano</summary>
+  <div class="cuerpo">
+  <form action="{{ url_for('organo_registrar') }}" method="POST" class="validar">
+    <div class="campos">
+      <div><label for="id_donante">Donante *</label>
+           <select id="id_donante" name="id_donante" required>{{ opciones(donantes_organo, None, 'Selecciona') }}</select></div>
+      <div><label for="id_tipo_organo">Órgano *</label>
+           <select id="id_tipo_organo" name="id_tipo_organo" required>{{ opciones(tipos_organo) }}</select></div>
+      <div><label for="id_lado">Lado (solo riñón y pulmón)</label>
+           <select id="id_lado" name="id_lado">{{ opciones(lados, None, 'No aplica') }}</select></div>
+      <div><label for="peso_gramos">Peso (g)</label>
+           <input type="number" id="peso_gramos" name="peso_gramos" step="0.01" min="0.01"></div>
+      <div><label for="tamano_cm">Tamaño (cm)</label>
+           <input type="number" id="tamano_cm" name="tamano_cm" step="0.01" min="0.01"></div>
+      <div><label for="horas_viabilidad">Horas de viabilidad *</label>
+           <input type="number" id="horas_viabilidad" name="horas_viabilidad" value="24" min="1" required></div>
+    </div>
+    <p class="ayuda">Se registra en tu institución: {{ session['institucion'] }}. Queda En evaluación hasta registrar una evaluación.</p>
+    <button class="btn" type="submit">Guardar</button>
+  </form>
+  </div>
+</details>
+{% endif %}
+
+<div class="tabla"><table>
+  <tr><th>Folio</th><th>Órgano</th><th>Tipo</th><th>Institución</th><th>Estado</th><th>Viabilidad</th><th>Límite</th><th>Última evaluación</th><th>Acción</th></tr>
+  {% for o in organos %}
+  <tr>
+    <td>{{ o.folio }}</td><td>{{ o.organo }}{% if o.tamano_cm %} <small>{{ o.tamano_cm }} cm</small>{% endif %}</td>
+    <td><b>{{ o.tipo_sangre }}</b></td><td>{{ o.institucion }}</td>
+    <td>{{ etiqueta(o.estado) }}</td><td>{{ etiqueta(o.viabilidad) }}</td>
+    <td>{{ o.fecha_hora_caducidad|fechahora }}</td><td>{{ o.ultima_evaluacion or 'Sin evaluar' }}</td>
+    <td>
+      {% if o.estado != 'En traslado' %}
+      <details class="accion"><summary>Evaluar</summary>
+        <div class="caja-accion">
+        <form action="{{ url_for('organo_evaluar') }}" method="POST">
+          <input type="hidden" name="id_recurso" value="{{ o.id_recurso }}">
+          <label>Tipo de evaluación</label>
+          <select name="id_tipo_evaluacion">{{ opciones(tipos_evaluacion) }}</select>
+          <label class="separado">Resultado</label>
+          <select name="id_resultado">{{ opciones(resultados_evaluacion) }}</select>
+          <label class="separado">Observaciones</label>
+          <input type="text" name="observaciones">
+          <button class="btn btn-chico separado" type="submit">Guardar evaluación</button>
+        </form>
+        </div>
+      </details>
+      {% endif %}
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="9" class="vacio">No hay órganos en la red en este momento.</td></tr>
+  {% endfor %}
+</table></div>
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import opciones, etiqueta %}
+{% block titulo %}Asignaciones{% endblock %}
+{% block contenido %}
+<h1 class="titulo">Asignaciones activas</h1>
+<p class="sub">Recursos asignados pendientes de traslado, recepción, transfusión o trasplante</p>
+
+<div class="tabla"><table>
+  <tr><th>Asignación</th><th>Solicitud</th><th>Receptor</th><th>Recurso</th><th>Dónde está</th><th>Destino</th><th>Estado</th><th>Acción</th></tr>
+  {% for a in asignaciones %}
+  {% set en_destino = a.donde_esta == a.destino %}
+  <tr>
+    <td>{{ a.id_asignacion }}</td>
+    <td>{{ a.id_solicitud }}</td>
+    <td>{{ a.receptor }}</td>
+    <td>{{ a.folio }} · {{ a.recurso }} <b>{{ a.tipo_sangre }}</b></td>
+    <td>{{ a.donde_esta }}</td>
+    <td>{{ a.destino }}</td>
+    <td>{{ etiqueta(a.estado) }}</td>
+    <td>
+      {# 1) reservada en el banco: logística la envía #}
+      {% if a.estado == 'Reservado' and not en_destino and tiene('Gestionar traslados') %}
+      <details class="accion"><summary>Enviar</summary>
+        <div class="caja-accion">
+        <form action="{{ url_for('programar_traslado') }}" method="POST" class="validar">
+          <input type="hidden" name="id_asignacion" value="{{ a.id_asignacion }}">
+          <label>Medio</label>
+          <select name="id_medio">{{ opciones(medios_transporte) }}</select>
+          <label class="separado">Minutos estimados</label>
+          <input type="number" name="minutos" value="40" min="1" max="1440" required>
+          <button class="btn btn-chico separado" type="submit">Registrar salida</button>
+        </form>
+        </div>
+      </details>
+      {% endif %}
+
+      {# 2) en camino: la recibe el destino (o logística confirma la entrega) #}
+      {% if a.estado == 'En traslado' and tiene('Confirmar recepciones') and (session['id_institucion'] == a.id_destino or tiene('Gestionar traslados')) %}
+      <details class="accion"><summary>Recibir</summary>
+        <div class="caja-accion">
+        <form action="{{ url_for('registrar_recepcion') }}" method="POST">
+          <input type="hidden" name="id_traslado" value="{{ a.id_traslado }}">
+          <label>Resultado</label>
+          <select name="id_resultado">{{ opciones(resultados_recepcion) }}</select>
+          <label class="separado">Observaciones (obligatorio si se rechaza)</label>
+          <input type="text" name="observaciones">
+          <button class="btn btn-chico separado" type="submit">Confirmar recepción</button>
+        </form>
+        </div>
+      </details>
+      {% endif %}
+
+      {# 3) sangre ya en el hospital: transfusión #}
+      {% if a.id_tipo_recurso == 1 and a.estado == 'Reservado' and en_destino and tiene('Registrar utilización de recursos') and session['id_institucion'] == a.id_destino %}
+      <details class="accion"><summary>Transfundir</summary>
+        <div class="caja-accion">
+        <form action="{{ url_for('registrar_transfusion') }}" method="POST">
+          <input type="hidden" name="id_asignacion" value="{{ a.id_asignacion }}">
+          <label>Resultado</label>
+          <select name="id_resultado">{{ opciones(resultados_transfusion) }}</select>
+          <button class="btn btn-chico separado" type="submit">Registrar transfusión</button>
+        </form>
+        </div>
+      </details>
+      {% endif %}
+
+      {# 4) órgano ya en la institución: trasplante #}
+      {% if a.id_tipo_recurso == 2 and a.estado == 'Reservado' and en_destino and tiene('Registrar utilización de recursos') and session['id_institucion'] == a.id_destino %}
+      <form class="linea" action="{{ url_for('registrar_trasplante') }}" method="POST" data-confirmar="¿Registrar el trasplante?">
+        <input type="hidden" name="id_asignacion" value="{{ a.id_asignacion }}">
+        <button class="btn btn-chico" type="submit">Registrar trasplante</button>
+      </form>
+      {% endif %}
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="8" class="vacio">No hay asignaciones activas.</td></tr>
+  {% endfor %}
+</table></div>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import opciones, etiqueta %}
+{% block titulo %}Solicitudes{% endblock %}
+{% block contenido %}
+<div class="encabezado">
+  <div><h1 class="titulo">Solicitudes</h1>
+       <p class="sub">Solicitudes de componentes sanguíneos y de órganos{% if not tiene('Consultar reportes regionales') %} de tu institución{% endif %}</p></div>
+  {% if tiene('Registrar solicitudes') %}<a class="btn" href="{{ url_for('solicitud_nueva') }}">+ Nueva solicitud</a>{% endif %}
+</div>
+
+<form class="filtros" method="GET">
+  <input type="search" name="q" value="{{ f.q }}" placeholder="Receptor o folio">
+  <select name="estado">{{ opciones(estados_solicitud, f.estado, 'Todos los estados') }}</select>
+  <select name="urgencia">{{ opciones(urgencias, f.urgencia, 'Todas las urgencias') }}</select>
+  <select name="recurso">
+    <option value="">Sangre y órganos</option>
+    <option value="1" {% if f.recurso == 1 %}selected{% endif %}>Solo sangre</option>
+    <option value="2" {% if f.recurso == 2 %}selected{% endif %}>Solo órganos</option>
+  </select>
+  <button class="btn btn-sec" type="submit">Filtrar</button>
+  <a class="btn btn-sec" href="{{ url_for('solicitudes') }}">Limpiar</a>
+</form>
+
+<p class="nota">{{ solicitudes|length }} línea(s) de solicitud</p>
+<div class="tabla"><table>
+  <tr><th>Folio</th><th>Hospital</th><th>Receptor</th><th>Pide</th><th>Asignadas</th><th>Urgencia</th><th>Estado</th><th>Fecha</th><th></th></tr>
+  {% for s in solicitudes %}
+  <tr>
+    <td>{{ s.id_solicitud }}</td><td>{{ s.hospital }}</td><td>{{ s.receptor }}</td><td>{{ s.pide }}</td>
+    <td>{{ s.asignadas }} de {{ s.cantidad }}</td><td>{{ etiqueta(s.urgencia) }}</td><td>{{ etiqueta(s.estado) }}</td>
+    <td>{{ s.fecha_hora_solicitud|fechahora }}</td>
+    <td class="acciones-fila">
+      <a class="btn btn-sec btn-chico" href="{{ url_for('solicitud_detalle', id_solicitud=s.id_solicitud) }}">Ver</a>
+      {% if s.estado in ['En proceso', 'Aprobada'] and tiene('Consultar compatibilidad') %}
+      <a class="btn btn-sec btn-chico" href="{{ url_for('matching', id_detalle=s.id_solicitud_detalle) }}">Matching</a>
+      {% endif %}
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="9" class="vacio">No hay solicitudes con esos filtros.</td></tr>
+  {% endfor %}
+</table></div>
+{% endblock %}

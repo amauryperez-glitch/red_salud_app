@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import opciones %}
+{% block titulo %}Nueva solicitud{% endblock %}
+{% block contenido %}
+<h1 class="titulo">Nueva solicitud</h1>
+<p class="sub">La solicitud se registra a nombre de tu institución: {{ session['institucion'] }}. Si el receptor no aparece, regístralo en <a href="{{ url_for('receptores') }}">Receptores</a>.</p>
+
+{% if not puede_sangre and not puede_organo %}
+<div class="mensaje info">Tu institución no tiene servicio de Transfusión (hospital) ni de Trasplante, por eso no puede registrar solicitudes.</div>
+{% endif %}
+
+{% if puede_sangre %}
+<div class="panel formulario">
+  <h2>Componentes sanguíneos</h2>
+  <form action="{{ url_for('solicitud_nueva_sangre') }}" method="POST" class="validar">
+    <div class="campos">
+      <div><label for="s_receptor">Receptor *</label>
+           <select id="s_receptor" name="id_receptor" required>{{ opciones(receptores, None, 'Selecciona') }}</select></div>
+      <div><label for="id_componente">Componente *</label>
+           <select id="id_componente" name="id_componente" required>{{ opciones(componentes) }}</select></div>
+      <div><label for="cantidad">Cantidad de unidades *</label>
+           <input type="number" id="cantidad" name="cantidad" value="1" min="1" max="20" required></div>
+      <div><label for="s_urgencia">Urgencia *</label>
+           <select id="s_urgencia" name="id_urgencia" required>{{ opciones(urgencias) }}</select></div>
+      <div><label for="s_horas">Horas límite *</label>
+           <input type="number" id="s_horas" name="horas_limite" value="24" min="1" max="720" required></div>
+      <div><label for="s_motivo">Motivo *</label>
+           <input type="text" id="s_motivo" name="motivo" maxlength="255" required></div>
+    </div>
+    <p class="ayuda">El tipo de sangre se toma del receptor. Al guardar se buscan candidatos compatibles.</p>
+    <button class="btn" type="submit">Registrar solicitud de sangre</button>
+  </form>
+</div>
+{% endif %}
+
+{% if puede_organo %}
+<div class="panel formulario">
+  <h2>Órgano</h2>
+  <form action="{{ url_for('solicitud_nueva_organo') }}" method="POST" class="validar">
+    <div class="campos">
+      <div><label for="o_receptor">Receptor *</label>
+           <select id="o_receptor" name="id_receptor" required>{{ opciones(receptores, None, 'Selecciona') }}</select></div>
+      <div><label for="id_tipo_organo">Órgano *</label>
+           <select id="id_tipo_organo" name="id_tipo_organo" required>{{ opciones(tipos_organo) }}</select></div>
+      <div><label for="tamano_min">Tamaño mínimo (cm)</label>
+           <input type="number" id="tamano_min" name="tamano_min" step="0.01" min="0.01" data-menor-que="tamano_max"></div>
+      <div><label for="tamano_max">Tamaño máximo (cm)</label>
+           <input type="number" id="tamano_max" name="tamano_max" step="0.01" min="0.01"></div>
+      <div><label for="o_urgencia">Urgencia *</label>
+           <select id="o_urgencia" name="id_urgencia" required>{{ opciones(urgencias) }}</select></div>
+      <div><label for="o_horas">Horas límite *</label>
+           <input type="number" id="o_horas" name="horas_limite" value="12" min="1" max="720" required></div>
+      <div><label for="o_motivo">Motivo *</label>
+           <input type="text" id="o_motivo" name="motivo" maxlength="255" required></div>
+    </div>
+    <button class="btn" type="submit">Registrar solicitud de órgano</button>
+  </form>
+</div>
+{% endif %}
+<p><a class="btn btn-sec" href="{{ url_for('solicitudes') }}">Volver a solicitudes</a></p>
+{% endblock %}

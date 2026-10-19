@@ -1,0 +1,144 @@
+/* ===== Red de Salud · estilos ===== */
+:root{
+  --azul:#0b2942; --azul2:#14507a; --turquesa:#1aa6a6;
+  --fondo:#eef3f8; --borde:#dbe3ec; --texto:#1e2a38; --gris:#64748b;
+  --rojo:#c0392b; --rojo-c:#fdecea; --ambar:#b7791f; --ambar-c:#fff4dc;
+  --verde:#1e8a5a; --verde-c:#e3f6ec; --celeste:#2b6cb0; --celeste-c:#e6f0fb;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--fondo);color:var(--texto);font-size:15px;line-height:1.45}
+a{color:var(--azul2)}
+
+/* ----- estructura ----- */
+.app{display:flex;min-height:100vh}
+.lateral{width:250px;flex-shrink:0;background:linear-gradient(180deg,#0b2942 0%,#103a5c 100%);color:#fff;padding:22px 14px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;overflow-y:auto}
+.marca{display:flex;align-items:center;gap:11px;margin-bottom:26px;padding:0 6px}
+.marca .logo{width:40px;height:40px;border-radius:11px;background:var(--turquesa);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px}
+.marca b{display:block;font-size:17px;letter-spacing:.5px}
+.marca small{display:block;color:#a9c2d8;font-size:11px;line-height:1.2}
+.lateral nav{flex:1}
+.grupo{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#7fa0bd;margin:18px 8px 6px}
+.lateral a.enlace{display:block;color:#d3e3f1;padding:9px 12px;border-radius:9px;text-decoration:none;margin-bottom:2px;font-size:14.5px}
+.lateral a.enlace:hover{background:rgba(255,255,255,.1);color:#fff}
+.lateral a.activo{background:var(--turquesa);color:#fff;font-weight:600}
+.usuario-caja{border-top:1px solid rgba(255,255,255,.15);padding-top:14px;margin-top:14px}
+.usuario-caja .fila{display:flex;align-items:center;gap:10px}
+.avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--turquesa),#4fd1c5);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.usuario-caja b{display:block;font-size:14px}
+.usuario-caja small{display:block;color:#a9c2d8;font-size:12px;line-height:1.25}
+.usuario-caja a.cambiar{display:block;margin-top:12px;text-align:center;color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:8px;padding:7px;text-decoration:none;font-size:13px}
+.usuario-caja a.cambiar:hover{background:rgba(255,255,255,.12)}
+.contenido{flex:1;padding:30px 36px;min-width:0}
+.contenido.solo{max-width:720px;margin:40px auto}
+.titulo{margin:0;font-size:27px;color:var(--azul)}
+.sub{margin:4px 0 22px;color:var(--gris)}
+.encabezado{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap}
+.botones{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+h2.seccion{font-size:18px;color:var(--azul);margin:26px 0 4px}
+h2.seccion small{color:var(--gris);font-weight:400}
+.nota{color:var(--gris);font-size:13.5px;margin:6px 0}
+
+/* ----- bienvenida, paneles y tarjetas ----- */
+.bienvenida{background:linear-gradient(120deg,#0b2942,#14507a);color:#fff;border-radius:14px;padding:18px 22px;margin-bottom:22px}
+.bienvenida h1{margin:0;font-size:22px}
+.bienvenida p{margin:4px 0 0;color:#cfe3f1;font-size:14px}
+.panel{background:#fff;border-radius:14px;padding:20px 22px;margin-bottom:22px;box-shadow:0 1px 3px rgba(11,41,66,.08)}
+.panel h2{margin:0 0 4px;font-size:18px;color:var(--azul)}
+.panel.peligro{border-left:5px solid var(--rojo)}
+.dos{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:22px}
+.tarjetas{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-top:10px}
+.tarjeta{background:#f8fafc;border-radius:12px;padding:14px 16px;border-left:5px solid var(--turquesa)}
+.tarjeta b{display:block;font-size:28px;line-height:1.1;color:var(--azul)}
+.tarjeta span{color:var(--gris);font-size:13px}
+.datos{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.datos div small{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--gris)}
+
+/* ----- tablas ----- */
+.tabla{overflow-x:auto;border:1px solid var(--borde);border-radius:11px;margin-top:10px}
+table{border-collapse:collapse;width:100%;background:#fff}
+th{background:#f3f6fa;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--gris);padding:10px 12px;border-bottom:1px solid var(--borde);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid #edf1f6;font-size:14px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+table tr:hover td{background:#fafcfe}
+td small{display:block;color:var(--gris);font-size:12px}
+.vacio{color:var(--gris);text-align:center;padding:18px}
+.acciones-fila{white-space:nowrap}
+
+/* ----- etiquetas de estado ----- */
+.etiqueta{display:inline-block;padding:2px 11px;border-radius:99px;font-size:12px;font-weight:600;background:#e8edf3;color:#44546a;white-space:nowrap}
+.disponible,.aceptada,.atendida,.completada,.activo,.activa,.recibido,.viable,.validado,.entregado{background:var(--verde-c);color:var(--verde)}
+.reservado,.aprobada,.en-traslado,.en-proceso,.en-tránsito,.programado,.en-lista-de-espera{background:var(--celeste-c);color:var(--celeste)}
+.pendiente,.diferido,.normal,.licencia,.en-evaluación,.vigente{background:var(--ambar-c);color:var(--ambar)}
+.rechazada,.cancelada,.descartado,.urgente,.inactivo,.inactiva,.bloqueado,.no-viable,.fallecido,.suspendida{background:var(--rojo-c);color:var(--rojo)}
+.prioritaria{background:#fff0e0;color:#c05621}
+.utilizado{background:#e8edf3;color:#44546a}
+
+/* ----- botones ----- */
+.btn{display:inline-block;background:var(--azul2);color:#fff;border:1px solid var(--azul2);padding:8px 16px;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;text-decoration:none;font-family:inherit}
+.btn:hover{background:var(--azul);border-color:var(--azul)}
+.btn-sec{background:#fff;color:var(--azul2);border:1px solid var(--borde)}
+.btn-sec:hover{background:#f3f6fa;color:var(--azul)}
+.btn-peligro{background:#fff;color:var(--rojo);border:1px solid #efc4bf}
+.btn-peligro:hover{background:var(--rojo-c);color:var(--rojo);border-color:#efc4bf}
+.btn-chico{padding:4px 11px;font-size:13px}
+form.linea{display:inline-flex;gap:6px;align-items:center;margin:2px 0}
+
+/* ----- formularios ----- */
+label{display:block;font-size:13px;font-weight:600;color:#3a4a5c;margin-bottom:4px}
+label.separado,.separado{margin-top:8px}
+input,select,textarea{width:100%;padding:9px 11px;border:1px solid #cdd7e2;border-radius:9px;font-size:14px;font-family:inherit;background:#fff;color:var(--texto)}
+input:focus,select:focus,textarea:focus{outline:2px solid #9fd8d8;border-color:var(--turquesa)}
+input.invalido,select.invalido,textarea.invalido{border-color:var(--rojo);background:var(--rojo-c)}
+.error-campo{color:var(--rojo);font-size:12px;margin-top:3px}
+.campos{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:14px 0}
+.campos .ancho{grid-column:1/-1}
+.ayuda{font-size:12px;color:var(--gris);margin-top:3px}
+.formulario{max-width:900px}
+.filtros{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 8px}
+.filtros input,.filtros select{width:auto;min-width:170px}
+.mini-form{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px}
+.mini-form input{width:auto;min-width:320px}
+details.nuevo{margin-bottom:22px}
+details.nuevo summary{display:inline-block;background:var(--turquesa);color:#fff;padding:10px 20px;border-radius:10px;cursor:pointer;font-weight:600;list-style:none;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+details.nuevo summary::-webkit-details-marker{display:none}
+details.nuevo[open] summary{background:#64748b}
+details.nuevo .cuerpo{background:#fff;border-radius:14px;padding:6px 22px 20px;margin-top:12px;box-shadow:0 1px 3px rgba(11,41,66,.08)}
+details.accion{display:inline-block;margin:2px 0;vertical-align:top}
+details.accion summary{cursor:pointer;list-style:none;display:inline-block;padding:4px 11px;border:1px solid var(--borde);border-radius:9px;font-size:13px;font-weight:600;color:var(--azul2);background:#fff}
+details.accion summary::-webkit-details-marker{display:none}
+details.accion[open] summary{background:#f3f6fa}
+details.accion .caja-accion{margin-top:6px;padding:10px;background:#f8fafc;border:1px solid var(--borde);border-radius:10px;min-width:230px}
+
+/* ----- mensajes y alertas ----- */
+.mensaje{padding:11px 14px;margin:0 0 14px;border-radius:10px;font-size:14px;border-left:5px solid var(--celeste);background:var(--celeste-c)}
+.mensaje.ok{border-color:var(--verde);background:var(--verde-c);color:#165f3f;font-weight:600}
+.mensaje.error{border-color:var(--rojo);background:var(--rojo-c);color:#8e2a1f}
+.alerta{padding:11px 14px;margin:8px 0;border-radius:10px;border-left:5px solid var(--celeste);background:var(--celeste-c);font-size:14px}
+.alerta.rojo{border-color:var(--rojo);background:var(--rojo-c)}
+
+/* ----- matching ----- */
+.candidato{border:1px solid var(--borde);border-radius:13px;padding:16px 18px;margin-bottom:14px;background:#fff}
+.candidato.mejor{border-color:var(--turquesa);box-shadow:0 0 0 3px #d4f1f1}
+.candidato .cabecera{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.puntaje{font-size:22px;font-weight:700;color:var(--azul2)}
+.candidato .explica{font-size:13px;color:var(--gris);margin:10px 0}
+.acciones{border-top:1px solid #edf1f6;padding-top:12px;margin-top:6px}
+.acciones form{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.acciones form input[type=text]{width:280px}
+
+/* ----- inicio de sesión ----- */
+.entrada{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:30px;background:linear-gradient(135deg,#0b2942 0%,#14507a 55%,#1aa6a6 100%)}
+.entrada .caja{width:100%;max-width:980px;text-align:center;color:#fff}
+.entrada .logo-grande{width:64px;height:64px;border-radius:18px;background:var(--turquesa);display:inline-flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;margin-bottom:12px}
+.entrada h1{margin:0;font-size:32px}
+.entrada p{margin:6px 0 28px;color:#cfe3f1}
+.ingreso{max-width:420px;margin:0 auto;background:#fff;color:var(--texto);border-radius:20px;padding:30px 28px;box-shadow:0 10px 30px rgba(0,0,0,.25);text-align:left}
+.ingreso .btn{width:100%;margin-top:16px}
+
+@media (max-width:820px){
+  .app{flex-direction:column}
+  .lateral{width:100%;height:auto;position:static}
+  .contenido{padding:20px 16px}
+  .dos{grid-template-columns:1fr}
+  .mini-form input,.acciones form input[type=text]{min-width:0;width:100%}
+}

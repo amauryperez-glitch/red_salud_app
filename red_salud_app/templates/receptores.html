@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import opciones, etiqueta, campos_persona %}
+{% block titulo %}Receptores{% endblock %}
+{% block contenido %}
+<h1 class="titulo">Receptores</h1>
+<p class="sub">Pacientes que necesitan sangre o un órgano</p>
+
+<details class="nuevo" {% if valores %}open{% endif %}>
+  <summary>+ Registrar receptor</summary>
+  <div class="cuerpo">
+  <form action="{{ url_for('receptores') }}" method="POST" class="validar">
+    <div class="campos">
+      {{ campos_persona(valores, sexos) }}
+      <div><label for="id_tipo_sanguineo">Tipo sanguíneo *</label>
+           <select id="id_tipo_sanguineo" name="id_tipo_sanguineo" required>{{ opciones(tipos_sangre, valores.id_tipo_sanguineo, 'Selecciona') }}</select></div>
+    </div>
+    <button class="btn" type="submit">Guardar</button>
+    <button class="btn btn-sec" type="reset">Limpiar</button>
+  </form>
+  </div>
+</details>
+
+<form class="filtros" method="GET">
+  <input type="search" name="q" value="{{ q }}" placeholder="Buscar por nombre">
+  <button class="btn btn-sec" type="submit">Buscar</button>
+</form>
+
+<div class="tabla"><table>
+  <tr><th>Id</th><th>Nombre</th><th>Tipo</th><th>Edad</th><th>Estado</th><th>Correo</th><th>Solicitudes</th></tr>
+  {% for r in receptores %}
+  <tr><td>{{ r.id_receptor }}</td><td>{{ r.nombre }}</td><td><b>{{ r.tipo_sangre }}</b></td><td>{{ r.edad }}</td>
+      <td>{{ etiqueta(r.estado) }}</td><td>{{ r.correo or '' }}</td><td>{{ r.solicitudes }}</td></tr>
+  {% else %}
+  <tr><td colspan="7" class="vacio">No hay receptores.</td></tr>
+  {% endfor %}
+</table></div>
+{% endblock %}

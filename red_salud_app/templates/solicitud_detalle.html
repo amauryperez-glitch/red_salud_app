@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import etiqueta %}
+{% block titulo %}Solicitud {{ sol.id_solicitud }}{% endblock %}
+{% block contenido %}
+{% set abierta = sol.estado in ['En proceso', 'Aprobada'] %}
+<div class="encabezado">
+  <div><h1 class="titulo">Solicitud {{ sol.id_solicitud }}</h1>
+       <p class="sub">{{ sol.hospital }} · {{ etiqueta(sol.estado) }} {{ etiqueta(sol.urgencia) }}</p></div>
+  <div class="botones">
+    <a class="btn btn-sec" href="{{ url_for('solicitudes') }}">Volver</a>
+    {% if abierta and tiene('Registrar solicitudes') %}
+    <a class="btn" href="{{ url_for('solicitud_editar', id_solicitud=sol.id_solicitud) }}">Editar</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="panel">
+  <div class="datos">
+    <div><small>Receptor</small>{{ sol.receptor }} <b>({{ sol.tipo_receptor }})</b></div>
+    <div><small>Registró</small>{{ sol.solicitante }}</div>
+    <div><small>Fecha de solicitud</small>{{ sol.fecha_hora_solicitud|fechahora }}</div>
+    <div><small>Fecha límite</small>{{ sol.fecha_limite|fechahora or '—' }}</div>
+    <div><small>Motivo</small>{{ sol.motivo }}</div>
+    <div><small>Observaciones</small>{{ sol.observaciones or '—' }}</div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Qué se pide</h2>
+  <div class="tabla"><table>
+    <tr><th>Línea</th><th>Recurso</th><th>Requisito</th><th>Asignadas</th><th></th></tr>
+    {% for l in lineas %}
+    <tr><td>{{ l.id_solicitud_detalle }}</td><td>{{ l.tipo_recurso }}</td><td>{{ l.requisito }}</td>
+        <td>{{ l.asignadas }} de {{ l.cantidad }}</td>
+        <td>{% if abierta and tiene('Consultar compatibilidad') %}<a class="btn btn-sec btn-chico" href="{{ url_for('matching', id_detalle=l.id_solicitud_detalle) }}">Ver matching</a>{% endif %}</td></tr>
+    {% endfor %}
+  </table></div>
+</div>
+
+<div class="panel">
+  <h2>Historial de matching y asignaciones</h2>
+  <p class="nota">Fuente: vista_matching. Sin estado = candidato evaluado que no se asignó.</p>
+  <div class="tabla"><table>
+    <tr><th>Matching</th><th>Unidad</th><th>Institución</th><th>Compatibilidad</th><th>Disponible</th><th>Explicación</th><th>Asignación</th></tr>
+    {% for m in historial %}
+    <tr><td>{{ m.id_matching }}</td><td>{{ m.unidad_asignada }}</td><td>{{ m.banco_sangre }}</td><td>{{ m.resultado_compatibilidad }}</td>
+        <td>{{ 'Sí' if m.disponible else 'No' }}</td><td><small>{{ m.explicacion or '' }}</small></td>
+        <td>{% if m.estado %}{{ etiqueta(m.estado) }} <small>{{ m.fecha_hora_asignacion|fechahora }}</small>{% endif %}</td></tr>
+    {% else %}<tr><td colspan="7" class="vacio">Todavía no hay candidatos evaluados.</td></tr>{% endfor %}
+  </table></div>
+</div>
+
+{% if abierta and tiene('Gestionar reservas') %}
+<div class="panel peligro">
+  <h2>Cancelar solicitud</h2>
+  <p class="nota">La solicitud no se borra: queda Cancelada con su motivo, y sus recursos reservados regresan a Disponible.</p>
+  <form method="POST" action="{{ url_for('solicitud_cancelar', id_solicitud=sol.id_solicitud) }}" class="validar mini-form"
+        data-confirmar="¿Cancelar la solicitud {{ sol.id_solicitud }}?">
+    <input type="text" name="motivo" placeholder="Motivo de la cancelación" maxlength="200" required>
+    <button class="btn btn-peligro" type="submit">Cancelar solicitud</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

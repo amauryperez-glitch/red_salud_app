@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import etiqueta %}
+{% block titulo %}Reportes{% endblock %}
+{% block contenido %}
+<h1 class="titulo">Reportes de la red</h1>
+<p class="sub">Información de vistas y consultas SQL (06_consultas.sql)</p>
+
+<div class="panel">
+  <h2>Solicitudes activas por hospital</h2>
+  <p class="nota">vista_hospitales_solicitudes_activas</p>
+  <div class="tabla"><table>
+    <tr><th>Hospital</th><th>Solicitud</th><th>Urgencia</th><th>Tipo</th><th>Cantidad</th><th>Estado</th><th>Solicitada</th><th>Límite</th><th>Motivo</th></tr>
+    {% for a in activas %}
+    <tr><td>{{ a.hospital }}</td><td><a href="{{ url_for('solicitud_detalle', id_solicitud=a.id_solicitud) }}">{{ a.id_solicitud }}</a></td>
+        <td>{{ etiqueta(a.urgencia) }}</td><td><b>{{ a.tipo_sangre }}</b></td><td>{{ a.cantidad }}</td><td>{{ etiqueta(a.estado_solicitud) }}</td>
+        <td>{{ a.fecha_solicitud|fechahora }}</td><td>{{ a.fecha_limite|fechahora }}</td><td>{{ a.motivo }}</td></tr>
+    {% else %}<tr><td colspan="9" class="vacio">No hay solicitudes activas.</td></tr>{% endfor %}
+  </table></div>
+</div>
+
+<div class="dos">
+<div class="panel">
+  <h2>Aprovechamiento de unidades por institución</h2>
+  <p class="nota">Consulta 11 (CTE WITH): unidades producidas, utilizadas y descartadas</p>
+  <div class="tabla"><table>
+    <tr><th>Institución</th><th>Producidas</th><th>Utilizadas</th><th>Descartadas</th><th>En inventario</th><th>% aprovechado</th><th>% desperdicio</th></tr>
+    {% for r in aprovechamiento %}
+    <tr><td>{{ r.institucion }}</td><td>{{ r.producidas }}</td><td>{{ r.utilizadas }}</td><td>{{ r.descartadas }}</td>
+        <td>{{ r.en_inventario }}</td><td><b>{{ r.pct_aprovechado }}%</b></td><td>{{ r.pct_desperdicio }}%</td></tr>
+    {% endfor %}
+  </table></div>
+</div>
+
+<div class="panel">
+  <h2>Ranking de hospitales por unidades transfundidas</h2>
+  <p class="nota">Consulta 12 (funciones de ventana RANK y SUM OVER)</p>
+  <div class="tabla"><table>
+    <tr><th>#</th><th>Hospital</th><th>Unidades</th><th>Acumulado</th><th>% del total</th></tr>
+    {% for r in ranking %}
+    <tr><td>{{ r.ranking }}</td><td>{{ r.hospital }}</td><td>{{ r.unidades }}</td><td>{{ r.acumulado }}</td><td>{{ r.pct }}%</td></tr>
+    {% endfor %}
+  </table></div>
+</div>
+</div>
+{% endblock %}

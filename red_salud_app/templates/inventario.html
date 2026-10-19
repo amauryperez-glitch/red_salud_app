@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import opciones, opciones_nombre, etiqueta %}
+{% block titulo %}Inventario{% endblock %}
+
+
+{% block contenido %}
+<h1 class="titulo">Inventario</h1>
+<p class="sub">Unidades de sangre (vista_inventario_sangre) y órganos, primero lo que caduca antes (FEFO)</p>
+
+<form class="filtros" method="GET">
+  <select name="banco">{{ opciones(instituciones, f.banco, 'Todas las instituciones') }}</select>
+  <select name="tipo">{{ opciones_nombre(tipos_sangre, f.tipo, 'Todos los tipos') }}</select>
+  <select name="componente">{{ opciones_nombre(componentes, f.componente, 'Todos los componentes') }}</select>
+  <select name="estado">{{ opciones_nombre(estados_recurso, f.estado, 'En circulación') }}</select>
+  <button class="btn btn-sec" type="submit">Filtrar</button>
+  <a class="btn btn-sec" href="{{ url_for('inventario') }}">Limpiar</a>
+</form>
+
+<h2 class="seccion">Componentes sanguíneos <small>({{ sangre|length }})</small></h2>
+<div class="tabla"><table>
+  <tr><th>Folio</th><th>Componente</th><th>Tipo</th><th>Institución</th><th>Estado</th><th>Extracción</th><th>Caduca</th><th>Días</th><th>ml</th><th>Acción</th></tr>
+  {% for r in sangre %}
+  <tr>
+    <td>{{ r.folio }}</td><td>{{ r.componente }}</td><td><b>{{ r.tipo_sangre }}</b></td><td>{{ r.banco_sangre }}</td>
+    <td>{{ etiqueta(r.estado_recurso) }}</td><td>{{ r.fecha_extraccion|fecha }}</td><td>{{ r.fecha_caducidad|fechahora }}</td>
+    <td>{{ r.dias }}</td><td>{{ r.cantidad }}</td>
+    <td>
+      {% if tiene('Registrar descartes') and r.estado_recurso in ['Disponible', 'Reservado'] %}
+      {% set id_recurso = r.id_recurso %}{% include '_descartar.html' %}
+      {% endif %}
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="10" class="vacio">No hay unidades con esos filtros.</td></tr>
+  {% endfor %}
+</table></div>
+
+<h2 class="seccion">Órganos en circulación <small>({{ organos|length }})</small></h2>
+<div class="tabla"><table>
+  <tr><th>Folio</th><th>Órgano</th><th>Tipo</th><th>Institución</th><th>Estado</th><th>Viabilidad</th><th>Límite</th><th>Días</th><th>Acción</th></tr>
+  {% for o in organos %}
+  <tr>
+    <td>{{ o.folio }}</td><td>{{ o.organo }}</td><td><b>{{ o.tipo_sangre }}</b></td><td>{{ o.institucion }}</td>
+    <td>{{ etiqueta(o.estado) }}</td><td>{{ etiqueta(o.viabilidad) }}</td><td>{{ o.fecha_hora_caducidad|fechahora }}</td><td>{{ o.dias }}</td>
+    <td>
+      {% if tiene('Registrar descartes') and o.estado in ['Disponible', 'Reservado'] %}
+      {% set id_recurso = o.id_recurso %}{% include '_descartar.html' %}
+      {% endif %}
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="9" class="vacio">No hay órganos en circulación.</td></tr>
+  {% endfor %}
+</table></div>
+{% endblock %}

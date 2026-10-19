@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import opciones %}
+{% block titulo %}Editar solicitud {{ sol.id_solicitud }}{% endblock %}
+{% block contenido %}
+<h1 class="titulo">Editar solicitud {{ sol.id_solicitud }}</h1>
+<p class="sub">{{ sol.receptor }} ({{ sol.tipo_receptor }}) · {{ sol.hospital }}. Lo que se pide no cambia; para eso cancela y registra otra.</p>
+<div class="panel formulario">
+<form method="POST" class="validar">
+  <div class="campos">
+    <div><label for="id_urgencia">Urgencia *</label>
+         <select id="id_urgencia" name="id_urgencia" required>{{ opciones(urgencias, valores.id_urgencia) }}</select></div>
+    <div><label for="fecha_limite">Fecha límite *</label>
+         <input type="datetime-local" id="fecha_limite" name="fecha_limite" required value="{{ valores.fecha_limite or '' }}" data-futura></div>
+    <div class="ancho"><label for="motivo">Motivo *</label>
+         <input type="text" id="motivo" name="motivo" maxlength="255" required value="{{ valores.motivo or '' }}"></div>
+    <div class="ancho"><label for="observaciones">Observaciones</label>
+         <textarea id="observaciones" name="observaciones" rows="3">{{ valores.observaciones or '' }}</textarea></div>
+  </div>
+  <button class="btn" type="submit">Guardar</button>
+  <a class="btn btn-sec" href="{{ url_for('solicitud_detalle', id_solicitud=sol.id_solicitud) }}">Cancelar</a>
+</form>
+</div>
+{% endblock %}

@@ -1,0 +1,362 @@
+You are now connected to database "banco_sangre_organos" as user "postgres".
+=================== SP1 sp_validar_login ===================
+--- 1.1 usuario y contraseña correctos (ESPERADO: 1 fila)
+BEGIN
+  p_usuario   
+--------------
+ cursor_login
+
+ id_usuario | id_personal |       ?column?        |        nombre        | id_institucion |                        nombre                         |      string_agg      |                                                                                         string_agg                                                                                          |     nombre      |               string_agg               
+------------+-------------+-----------------------+----------------------+----------------+-------------------------------------------------------+----------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-----------------+----------------------------------------
+          2 |           2 | Teresa Medina Vázquez | Coordinador regional |              1 | Centro Estatal de Transfusión Sanguínea de Nuevo León | Coordinador regional | Aprobar asignaciones;Consultar compatibilidad;Consultar inventario y alertas;Consultar reportes regionales;Gestionar reservas;Gestionar traslados;Registrar descartes;Validar documentación | Banco de sangre | Donación de sangre;Laboratorio clínico
+
+COMMIT
+--- 1.2 contraseña incorrecta (ESPERADO: 0 filas)
+BEGIN
+  p_usuario   
+--------------
+ cursor_login
+
+ ?column? 
+----------
+
+COMMIT
+--- 1.3 usuario Bloqueado lgomez con contraseña correcta (ESPERADO: 0 filas)
+BEGIN
+  p_usuario   
+--------------
+ cursor_login
+
+ ?column? 
+----------
+
+COMMIT
+--- 1.4 usuario Inactivo crodriguez (ESPERADO: 0 filas)
+BEGIN
+  p_usuario   
+--------------
+ cursor_login
+
+ ?column? 
+----------
+
+COMMIT
+--- 1.5 la contraseña se guarda como hash bcrypt, no en texto (ESPERADO: empieza con $2)
+ usuario_login | hash_guardado | demo_ok | minusculas_ok 
+---------------+---------------+---------+---------------
+ tmedina       | $2b$10$...    | t       | f
+
+=================== SP2 sp_registrar_donante ===================
+--- 2.1 donante nuevo O- (ESPERADO: regresa p_id_donante)
+id_donante nuevo = 59
+--- 2.2 segundo donante (se usara para la prueba de laboratorio Reactivo)
+--- 2.3 menor de edad (ESPERADO: ERROR)
+ERROR:  El donante debe tener entre 18 y 65 años (tiene 14)
+CONTEXT:  PL/pgSQL function sp_registrar_donante(character varying,character varying,date,integer,character varying,character varying,integer,integer) line 26 at RAISE
+--- 2.4 correo repetido (ESPERADO: ERROR)
+ERROR:  Ya existe una persona registrada con el correo mariana.leal@correo-demo.mx
+CONTEXT:  PL/pgSQL function sp_registrar_donante(character varying,character varying,date,integer,character varying,character varying,integer,integer) line 49 at RAISE
+--- 2.5 usuario sin permiso, laboratorio (ESPERADO: ERROR)
+ERROR:  No tienes permiso para registrar donantes
+CONTEXT:  PL/pgSQL function sp_registrar_donante(character varying,character varying,date,integer,character varying,character varying,integer,integer) line 7 at RAISE
+=================== SP3 sp_registrar_donacion ===================
+--- 3.1 donante Diferido (la evaluacion No apto se hace desde Flask con UPDATE) (ESPERADO: ERROR)
+UPDATE 1
+ERROR:  El donante no está Activo, no puede donar
+CONTEXT:  PL/pgSQL function sp_registrar_donacion(integer,integer,integer,character varying,text) line 19 at RAISE
+UPDATE 1
+--- 3.2 donacion de 450 ml con su consentimiento (ESPERADO: id_donacion Pendiente y documento Vigente)
+ id_donacion | id_institucion | id_estado_donacion | certificado_ref | estado_documento 
+-------------+----------------+--------------------+-----------------+------------------
+          80 |              1 |                  3 | CONS-P0001      | Vigente
+
+--- 3.3 mismo donante otra vez el mismo dia (ESPERADO: ERROR 56 dias)
+ERROR:  El donante donó el 18/10/2026, deben pasar 56 días entre donaciones
+CONTEXT:  PL/pgSQL function sp_registrar_donacion(integer,integer,integer,character varying,text) line 49 at RAISE
+--- 3.4 volumen fuera de rango (ESPERADO: ERROR)
+ERROR:  El volumen debe estar entre 400 y 500 ml
+CONTEXT:  PL/pgSQL function sp_registrar_donacion(integer,integer,integer,character varying,text) line 31 at RAISE
+--- 3.5 sin folio de consentimiento (ESPERADO: ERROR)
+ERROR:  El folio del consentimiento informado es obligatorio
+CONTEXT:  PL/pgSQL function sp_registrar_donacion(integer,integer,integer,character varying,text) line 35 at RAISE
+=================== SP4 sp_registrar_resultado_laboratorio ===================
+--- 4.1 todo No reactivo (ESPERADO: Aceptada)
+ p_resultado 
+-------------
+ Aceptada
+
+--- 4.2 Hepatitis C Reactivo (ESPERADO: Rechazada y donante Diferido)
+ p_resultado 
+-------------
+ Rechazada
+
+ id_donante | estado_donante 
+------------+----------------
+         60 | Diferido
+
+--- 4.3 repetir resultado de la misma donacion (ESPERADO: ERROR)
+ERROR:  La donación ya tiene resultado (no está Pendiente)
+CONTEXT:  PL/pgSQL function sp_registrar_resultado_laboratorio(integer,integer,character varying,character varying,character varying,character varying) line 38 at RAISE
+--- 4.4 personal sin permiso (ESPERADO: ERROR)
+ERROR:  No tienes permiso para validar resultados de laboratorio
+CONTEXT:  PL/pgSQL function sp_registrar_resultado_laboratorio(integer,integer,character varying,character varying,character varying,character varying) line 13 at RAISE
+=================== SP5 sp_fraccionar_donacion ===================
+--- 5.1 fraccionar donacion aceptada (ESPERADO: 3 unidades)
+ p_total 
+---------
+       3
+
+    folio    |           nombre           |   caduca   |   estado   
+-------------+----------------------------+------------+------------
+ UC-00080-E  | Concentrado de eritrocitos | 29/11/2026 | Disponible
+ UC-00080-P  | Plasma fresco congelado    | 18/10/2027 | Disponible
+ UC-00080-PL | Concentrado de plaquetas   | 23/10/2026 | Disponible
+
+--- 5.2 fraccionar donacion rechazada (ESPERADO: ERROR)
+ERROR:  Solo se fraccionan donaciones Aceptadas por laboratorio
+CONTEXT:  PL/pgSQL function sp_fraccionar_donacion(integer,integer) line 29 at RAISE
+=================== SP7 + SP6 sp_registrar_solicitud_sangre / sp_generar_matching ===================
+--- 7.1 Hospital Universitario pide 1 eritrocitos para receptor 4 (O+), Urgente (ESPERADO: solicitud + candidatos > 0)
+solicitud = 70  candidatos = 12
+--- 6.1 candidatos ordenados por puntaje (ESPERADO: solo O+ y O-, nunca A/B/AB)
+   folio   | tipo | puntaje 
+-----------+------+---------
+ NL-0058-E | O+   |     120
+ NL-0061-E | O+   |     120
+ NL-0062-E | O+   |     120
+ NL-0063-E | O+   |     120
+ NL-0064-E | O+   |     120
+
+ tipos_encontrados 
+-------------------
+ O+
+ O-
+
+--- 6.2 regenerar el matching no duplica filas (ESPERADO: mismo total)
+ p_total 
+---------
+      12
+
+--- 6.3 linea que no existe (ESPERADO: ERROR)
+ERROR:  La línea de solicitud 999999 no existe
+CONTEXT:  PL/pgSQL function sp_generar_matching(integer) line 20 at RAISE
+--- 7.2 banco de sangre intenta pedir sangre (ESPERADO: ERROR solo hospitales)
+ERROR:  Solo un hospital activo con servicio de transfusión puede pedir sangre
+CONTEXT:  PL/pgSQL function sp_registrar_solicitud_sangre(integer,integer,integer,integer,integer,integer,character varying) line 20 at RAISE
+--- 7.3 cantidad cero (ESPERADO: ERROR)
+ERROR:  La cantidad debe ser mayor que cero
+CONTEXT:  PL/pgSQL function sp_registrar_solicitud_sangre(integer,integer,integer,integer,integer,integer,character varying) line 35 at RAISE
+--- 7.4 sin motivo (ESPERADO: ERROR)
+ERROR:  El motivo es obligatorio
+CONTEXT:  PL/pgSQL function sp_registrar_solicitud_sangre(integer,integer,integer,integer,integer,integer,character varying) line 39 at RAISE
+--- 7.5 receptor 5 (AB+) pide plaquetas: no hay plaquetas AB (ESPERADO: 0 candidatos)
+ p_id_solicitud | p_candidatos 
+----------------+--------------
+             71 |            0
+
+=================== SP8 sp_asignar_recurso ===================
+--- 8.1 usuario sin permiso rreyes (ESPERADO: ERROR)
+ERROR:  No tienes permiso para aprobar asignaciones
+CONTEXT:  PL/pgSQL function sp_asignar_recurso(integer,integer,character varying) line 13 at RAISE
+--- 8.2 coordinador regional asigna el mejor candidato (ESPERADO: id_asignacion, recurso Reservado)
+ id_asignacion |   folio   | estado_recurso | estado_solicitud 
+---------------+-----------+----------------+------------------
+           109 | NL-0058-E | Reservado      | Aprobada
+
+--- 8.3 asignar sin motivo (ESPERADO: ERROR)
+ERROR:  Escribe el motivo de la asignación
+CONTEXT:  PL/pgSQL function sp_asignar_recurso(integer,integer,character varying) line 18 at RAISE
+--- 8.4 asignar otra vez el mismo matching (ESPERADO: ERROR ya no Disponible)
+ERROR:  El recurso ya no está Disponible
+CONTEXT:  PL/pgSQL function sp_asignar_recurso(integer,integer,character varying) line 44 at RAISE
+=================== SP11 (antes de tiempo) ===================
+--- 11.1 transfundir sin traslado (ESPERADO: ERROR todavia no llega)
+ERROR:  El recurso todavía no llega al hospital, falta el traslado y la recepción
+CONTEXT:  PL/pgSQL function sp_registrar_transfusion(integer,integer,integer) line 45 at RAISE
+=================== SP9 sp_programar_traslado ===================
+--- 9.1 personal medico sin permiso (ESPERADO: ERROR)
+ERROR:  No tienes permiso para gestionar traslados
+CONTEXT:  PL/pgSQL function sp_programar_traslado(integer,integer,integer,integer) line 10 at RAISE
+--- 9.2 logistica envia en vehiculo refrigerado, 40 min (ESPERADO: id_traslado, recurso En traslado)
+ id_traslado |                        origen                         |                      destino                       |   estado    
+-------------+-------------------------------------------------------+----------------------------------------------------+-------------
+          77 | Centro Estatal de Transfusión Sanguínea de Nuevo León | Hospital Universitario Dr. José Eleuterio González | En tránsito
+
+--- 9.3 enviar otra vez (ESPERADO: ERROR ya no esta Reservado)
+ERROR:  El recurso debe estar Reservado para trasladarse
+CONTEXT:  PL/pgSQL function sp_programar_traslado(integer,integer,integer,integer) line 31 at RAISE
+=================== SP10 sp_registrar_recepcion ===================
+--- 10.1 coordinador de otro hospital intenta recibir (ESPERADO: ERROR)
+ERROR:  Solo el hospital destino o logística pueden confirmar la entrega
+CONTEXT:  PL/pgSQL function sp_registrar_recepcion(integer,integer,integer,text) line 29 at RAISE
+--- 10.2 hospital recibe conforme (ESPERADO: Recibido)
+ p_resultado 
+-------------
+ Recibido
+
+--- 10.3 recibir otra vez el mismo traslado (ESPERADO: ERROR)
+ERROR:  El traslado no está En tránsito (ya fue entregado o no ha salido)
+CONTEXT:  PL/pgSQL function sp_registrar_recepcion(integer,integer,integer,text) line 23 at RAISE
+=================== SP11 sp_registrar_transfusion ===================
+--- 11.2 transfusion sin reaccion (ESPERADO: id_transfusion, solicitud Atendida)
+ p_id_transfusion 
+------------------
+               80
+
+ id_solicitud |  estado  
+--------------+----------
+           70 | Atendida
+
+--- trazabilidad del recurso (custodia)
+ id_movimiento |        movimiento        |                      institucion                      
+---------------+--------------------------+-------------------------------------------------------
+           145 | Ingreso a almacenamiento | Centro Estatal de Transfusión Sanguínea de Nuevo León
+           539 | Salida a traslado        | Centro Estatal de Transfusión Sanguínea de Nuevo León
+           540 | Recepción                | Hospital Universitario Dr. José Eleuterio González
+           541 | Entrega para uso         | Hospital Universitario Dr. José Eleuterio González
+
+--- 11.3 transfundir otra vez (ESPERADO: ERROR)
+ERROR:  La asignación no está Activa
+CONTEXT:  PL/pgSQL function sp_registrar_transfusion(integer,integer,integer) line 33 at RAISE
+=================== SP10 recepcion rechazada ===================
+--- 10.4 nueva solicitud, se asigna, se envia y llega a 15 grados (ESPERADO: Rechazado y descartado, solicitud regresa a En proceso)
+--- 10.5 rechazar sin motivo (ESPERADO: ERROR)
+ERROR:  Escribe el motivo del rechazo
+CONTEXT:  PL/pgSQL function sp_registrar_recepcion(integer,integer,integer,text) line 34 at RAISE
+      p_resultado       
+------------------------
+ Rechazado y descartado
+
+   folio   | estado_recurso | asignacion | estado_solicitud 
+-----------+----------------+------------+------------------
+ NL-0061-E | Descartado     | Cancelada  | En proceso
+
+=================== SP12 sp_descartar_recurso ===================
+--- 12.1 laboratorio descarta plasma por daño (ESPERADO: Descartado)
+CALL
+   folio    |   nombre   
+------------+------------
+ UC-00080-P | Descartado
+
+--- 12.2 descartar sin motivo (ESPERADO: ERROR)
+ERROR:  Escribe el motivo del descarte
+CONTEXT:  PL/pgSQL function sp_descartar_recurso(integer,integer,integer,text) line 13 at RAISE
+--- 12.3 coordinador hospitalario no puede descartar (ESPERADO: ERROR)
+ERROR:  No tienes permiso para descartar recursos
+CONTEXT:  PL/pgSQL function sp_descartar_recurso(integer,integer,integer,text) line 9 at RAISE
+--- 12.4 descartar algo ya Utilizado (ESPERADO: ERROR)
+ERROR:  El recurso ya fue Utilizado, no se puede descartar
+CONTEXT:  PL/pgSQL function sp_descartar_recurso(integer,integer,integer,text) line 24 at RAISE
+--- 12.5 descartar un recurso Reservado (ESPERADO: Descartado, asignacion Cancelada, solicitud En proceso)
+CALL
+  recurso   | asignacion | solicitud  
+------------+------------+------------
+ Descartado | Cancelada  | En proceso
+
+=================== SP13 sp_registrar_organo ===================
+--- 13.1 rinon sin lado (ESPERADO: ERROR)
+ERROR:  Para riñón o pulmón indica el lado
+CONTEXT:  PL/pgSQL function sp_registrar_organo(integer,integer,integer,integer,numeric,numeric,integer) line 37 at RAISE
+--- 13.2 rreyes registra rinon izquierdo del donante 1 (ESPERADO: recurso Disponible, En evaluacion)
+     folio     |   estado   |  viabilidad   
+---------------+------------+---------------
+ ORG-00027-1-1 | Disponible | En evaluación
+
+--- 13.3 institucion sin Procuracion de organos: eesquivel del banco (ESPERADO: ERROR)
+ERROR:  Tu institución no hace procuración de órganos
+CONTEXT:  PL/pgSQL function sp_registrar_organo(integer,integer,integer,integer,numeric,numeric,integer) line 16 at RAISE
+--- 13.4 corazon con lado (ESPERADO: ERROR)
+ERROR:  Ese órgano no lleva lado
+CONTEXT:  PL/pgSQL function sp_registrar_organo(integer,integer,integer,integer,numeric,numeric,integer) line 41 at RAISE
+--- 13.5 la evaluacion se hace desde Flask (INSERT + UPDATE); aqui se simula que quedo Viable
+INSERT 0 1
+UPDATE 1
+=================== SP14 sp_registrar_solicitud_organo + SP6 (organo) ===================
+--- 14.1 atamez pide un rinon para el receptor 2 (A+) de 10 a 13 cm (ESPERADO: 1 candidato)
+solicitud = 74  candidatos = 1
+     folio     | tipo | puntaje |                                    explicacion                                    
+---------------+------+---------+-----------------------------------------------------------------------------------
+ ORG-00027-1-1 | O-   |     115 | Riñón O- compatible con receptor A+; mide 11.50 cm; viable hasta 20/10/2026 05:35
+
+--- 14.2 sin motivo (ESPERADO: ERROR)
+ERROR:  El motivo es obligatorio
+CONTEXT:  PL/pgSQL function sp_registrar_solicitud_organo(integer,integer,integer,integer,numeric,numeric,integer,character varying) line 37 at RAISE
+--- 14.3 hospital sin Trasplante: vgonzalez del Materno Infantil (ESPERADO: ERROR)
+ERROR:  Solo una institución activa con servicio de trasplante puede pedir órganos
+CONTEXT:  PL/pgSQL function sp_registrar_solicitud_organo(integer,integer,integer,integer,numeric,numeric,integer,character varying) line 14 at RAISE
+--- 14.4 tamano minimo mayor al maximo (ESPERADO: ERROR)
+ERROR:  El rango de tamaño no es válido
+CONTEXT:  PL/pgSQL function sp_registrar_solicitud_organo(integer,integer,integer,integer,numeric,numeric,integer,character varying) line 33 at RAISE
+--- 6.4 recalcular el matching del organo con el mismo SP6 (ESPERADO: 1)
+ p_total 
+---------
+       1
+
+=================== Flujo del organo: asignar, trasladar y recibir ===================
+--- 11.4 transfundir un organo (ESPERADO: ERROR)
+ERROR:  Solo se transfunden componentes sanguíneos
+CONTEXT:  PL/pgSQL function sp_registrar_transfusion(integer,integer,integer) line 37 at RAISE
+--- 15.1 trasplante antes de que llegue el organo (ESPERADO: ERROR)
+ERROR:  El órgano todavía no llega a la institución, falta el traslado y la recepción
+CONTEXT:  PL/pgSQL function sp_registrar_trasplante(integer,integer) line 42 at RAISE
+ p_resultado 
+-------------
+ Recibido
+
+=================== SP15 sp_registrar_trasplante ===================
+--- 15.2 atamez no tiene Registrar utilizacion de recursos (ESPERADO: ERROR)
+ERROR:  No tienes permiso para registrar trasplantes
+CONTEXT:  PL/pgSQL function sp_registrar_trasplante(integer,integer) line 14 at RAISE
+--- 15.3 medico de otro hospital: dgarza (ESPERADO: ERROR)
+ERROR:  Solo el personal de la institución que pidió el órgano puede registrar el trasplante
+CONTEXT:  PL/pgSQL function sp_registrar_trasplante(integer,integer) line 47 at RAISE
+--- 15.4 iibarra registra el trasplante (ESPERADO: operacion Trasplante, solicitud Atendida, recurso Utilizado)
+ id_operacion |    tipo    |   estado   
+--------------+------------+------------
+           28 | Trasplante | Completada
+
+ solicitud 
+-----------
+ Atendida
+
+  recurso  
+-----------
+ Utilizado
+
+--- 15.5 registrar el trasplante otra vez (ESPERADO: ERROR)
+ERROR:  La asignación no está Activa
+CONTEXT:  PL/pgSQL function sp_registrar_trasplante(integer,integer) line 38 at RAISE
+--- 15.6 trasplante con una asignacion de sangre (ESPERADO: ERROR)
+ERROR:  Es una unidad de sangre, registra una transfusión
+CONTEXT:  PL/pgSQL function sp_registrar_trasplante(integer,integer) line 34 at RAISE
+=================== SP16 sp_cancelar_solicitud ===================
+--- 16.1 nueva solicitud con un recurso Reservado (se cancela despues)
+--- 16.2 sin motivo (ESPERADO: ERROR)
+ERROR:  Escribe el motivo de la cancelación
+CONTEXT:  PL/pgSQL function sp_cancelar_solicitud(integer,integer,text) line 13 at RAISE
+--- 16.3 sin permiso Gestionar reservas: dgarza (ESPERADO: ERROR)
+ERROR:  No tienes permiso para cancelar solicitudes
+CONTEXT:  PL/pgSQL function sp_cancelar_solicitud(integer,integer,text) line 9 at RAISE
+--- 16.4 coordinador de otro hospital: atamez (ESPERADO: ERROR solo tu institucion)
+ERROR:  Solo puedes cancelar solicitudes de tu institución
+CONTEXT:  PL/pgSQL function sp_cancelar_solicitud(integer,integer,text) line 30 at RAISE
+--- 16.5 rreyes cancela (ESPERADO: 1 liberado, solicitud Cancelada, reserva Liberada, recurso Disponible)
+ p_liberados 
+-------------
+           1
+
+ solicitud | asignacion | reserva  |  recurso   
+-----------+------------+----------+------------
+ Cancelada | Cancelada  | Liberada | Disponible
+
+--- 16.6 cancelar otra vez (ESPERADO: ERROR ya Cancelada)
+ERROR:  La solicitud ya está Atendida o Cancelada
+CONTEXT:  PL/pgSQL function sp_cancelar_solicitud(integer,integer,text) line 24 at RAISE
+--- 16.7 cancelar una solicitud Atendida (ESPERADO: ERROR)
+ERROR:  La solicitud ya está Atendida o Cancelada
+CONTEXT:  PL/pgSQL function sp_cancelar_solicitud(integer,integer,text) line 24 at RAISE
+=================== FUNCIONES (SELECT) ===================
+ edad | hash_ok | o_neg_a_mas_eritro | a_mas_a_o_mas_eritro | plasma_ab_a_o | km_banco_hospital | coord_aprueba | banco_transfunde | organo_o_a_a | organo_a_a_o 
+------+---------+--------------------+----------------------+---------------+-------------------+---------------+------------------+--------------+--------------
+   26 | t       | t                  | f                    | t             |              2.14 | t             | f                | t            | f
+

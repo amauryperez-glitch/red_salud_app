@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block titulo %}Matching{% endblock %}
+{% block contenido %}
+<h1 class="titulo">Matching de la solicitud {{ id_solicitud }} (línea {{ id_detalle }})</h1>
+<p class="sub">{{ total }} recurso(s) compatibles, de la mejor opción a la menos recomendada (puntaje y caducidad)</p>
+<p><a class="btn btn-sec btn-chico" href="{{ url_for('solicitud_detalle', id_solicitud=id_solicitud) }}">Volver a la solicitud</a></p>
+
+{% if total == 0 %}
+<div class="mensaje info">No hay recursos compatibles disponibles en la red en este momento.</div>
+{% endif %}
+
+{% for c in candidatos %}
+<div class="candidato {% if loop.first %}mejor{% endif %}">
+  <div class="cabecera">
+    <b>{{ c.folio }} · {{ c.tipo_sangre }} {% if loop.first %}<span class="etiqueta disponible">Mejor opción</span>{% endif %}</b>
+    <span class="puntaje">{{ c.puntaje }} pts</span>
+  </div>
+  <div class="datos">
+    <div><small>Institución</small>{{ c.institucion }}</div>
+    <div><small>Caduca</small>{{ c.caducidad|fechahora }}</div>
+    <div><small>Días restantes</small>{{ c.dias }}</div>
+  </div>
+  <div class="explica">{{ c.explicacion }}</div>
+  {% if tiene('Aprobar asignaciones') %}
+  <div class="acciones">
+    <form action="{{ url_for('asignar') }}" method="POST" class="validar">
+      <input type="hidden" name="id_matching" value="{{ c.id_matching }}">
+      <input type="hidden" name="id_detalle" value="{{ id_detalle }}">
+      <input type="text" name="motivo" placeholder="Motivo de la asignación" maxlength="255" required>
+      <button class="btn btn-chico" type="submit">Asignar y reservar</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+{% endblock %}

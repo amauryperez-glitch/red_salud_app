@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Iniciar sesión · Red de Salud</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/estilos.css') }}">
+</head>
+<body>
+<div class="entrada">
+  <div class="caja">
+    <div class="logo-grande">RS</div>
+    <h1>Red de Salud</h1>
+    <p>Red regional de bancos de sangre y donación de órganos</p>
+    <div class="ingreso">
+      {% with mensajes = get_flashed_messages(with_categories=true) %}
+        {% for categoria, texto in mensajes %}<div class="mensaje {{ categoria }}">{{ texto }}</div>{% endfor %}
+      {% endwith %}
+      <form action="{{ url_for('login') }}" method="POST" class="validar">
+        <input type="hidden" name="next" value="{{ siguiente }}">
+        <label for="usuario">Usuario</label>
+        <input type="text" id="usuario" name="usuario" maxlength="50" required autofocus autocomplete="username">
+        <label for="password" class="separado">Contraseña</label>
+        <input type="password" id="password" name="password" maxlength="100" required autocomplete="current-password">
+        <button class="btn" type="submit">Iniciar sesión</button>
+      </form>
+    </div>
+  </div>
+</div>
+<script src="{{ url_for('static', filename='js/validaciones.js') }}"></script>
+</body>
+</html>

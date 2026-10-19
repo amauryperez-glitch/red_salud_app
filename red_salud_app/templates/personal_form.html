@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import opciones, campos_persona %}
+{% block titulo %}{{ 'Editar personal' if persona else 'Registrar personal' }}{% endblock %}
+{% block contenido %}
+<h1 class="titulo">{{ 'Editar personal ' ~ persona.id_personal if persona else 'Registrar personal' }}</h1>
+<p class="sub">Debe ser mayor de edad. La institución debe estar Activa.</p>
+<div class="panel formulario">
+<form method="POST" class="validar">
+  <div class="campos">
+    {{ campos_persona(valores, sexos, 18) }}
+    <div><label for="id_institucion">Institución *</label>
+         <select id="id_institucion" name="id_institucion" required>{{ opciones(instituciones_activas, valores.id_institucion, 'Selecciona') }}</select></div>
+    <div><label for="id_cargo">Cargo *</label>
+         <select id="id_cargo" name="id_cargo" required>{{ opciones(cargos, valores.id_cargo, 'Selecciona') }}</select></div>
+    <div><label for="cedula">Cédula profesional</label>
+         <input type="text" id="cedula" name="cedula" maxlength="20" value="{{ valores.cedula or '' }}"></div>
+    {% if persona %}
+    <div><label for="id_estado_personal">Estado *</label>
+         <select id="id_estado_personal" name="id_estado_personal" required>{{ opciones(estados_personal, valores.id_estado_personal) }}</select>
+         <div class="ayuda">Si no queda Activo, su usuario también se desactiva.</div></div>
+    {% endif %}
+  </div>
+  <button class="btn" type="submit">Guardar</button>
+  <a class="btn btn-sec" href="{{ url_for('personal_detalle', id_personal=persona.id_personal) if persona else url_for('personal') }}">Cancelar</a>
+</form>
+</div>
+{% endblock %}
