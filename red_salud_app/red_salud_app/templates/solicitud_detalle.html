@@ -1,0 +1,77 @@
+{% include 'encabezado.html' %}
+
+{% set abierta = Solicitud[12] in ['En proceso', 'Aprobada'] %}
+<div class="encabezado">
+  <div><h1 class="titulo">Solicitud {{Solicitud[0]}}</h1>
+       <p class="sub">{{Solicitud[8]}} ·
+          <span class="etiqueta {{Solicitud[12]|lower|replace(' ', '-')}}">{{Solicitud[12]}}</span>
+          <span class="etiqueta {{Solicitud[11]|lower}}">{{Solicitud[11]}}</span></p></div>
+  <div class="botones">
+    <a class="btn btn-sec" href="/solicitudes">Volver</a>
+    {% if abierta and tiene('Registrar solicitudes') %}
+    <a class="btn" href="/editarsolicitud/{{Solicitud[0]}}">Editar</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="panel">
+  <div class="datos">
+    <div><small>Receptor</small>{{Solicitud[9]}} <b>({{Solicitud[10]}})</b></div>
+    <div><small>Registró</small>{{Solicitud[13]}}</div>
+    <div><small>Fecha de solicitud</small>{{Solicitud[4]|fechahora}}</div>
+    <div><small>Fecha límite</small>{{Solicitud[5]|fechahora or '—'}}</div>
+    <div><small>Motivo</small>{{Solicitud[6]}}</div>
+    <div><small>Observaciones</small>{{Solicitud[7] or '—'}}</div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Qué se pide</h2>
+  <div class="tabla"><table>
+    <tr><th>Línea</th><th>Recurso</th><th>Requisito</th><th>Asignadas</th><th></th></tr>
+    {% for l in Lineas %}
+    <tr>
+      <td>{{l[0]}}</td>
+      <td>{{l[1]}}</td>
+      <td>{{l[3]}}</td>
+      <td>{{l[4]}} de {{l[2]}}</td>
+      <td>{% if abierta and tiene('Consultar compatibilidad') %}<a class="btn btn-sec btn-chico" href="/matching/{{l[0]}}">Ver matching</a>{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table></div>
+</div>
+
+<div class="panel">
+  <h2>Historial de matching y asignaciones</h2>
+  <p class="nota">Fuente: vista_matching. Sin estado = candidato evaluado que no se asignó.</p>
+  <div class="tabla"><table>
+    <tr><th>Matching</th><th>Unidad</th><th>Institución</th><th>Compatibilidad</th><th>Disponible</th><th>Explicación</th><th>Asignación</th></tr>
+    {% for m in Historial %}
+    <tr>
+      <td>{{m[0]}}</td>
+      <td>{{m[1]}}</td>
+      <td>{{m[2]}}</td>
+      <td>{{m[3]}}</td>
+      <td>{% if m[4] %}Sí{% else %}No{% endif %}</td>
+      <td><small>{{m[5] or ''}}</small></td>
+      <td>{% if m[6] %}<span class="etiqueta {{m[6]|lower}}">{{m[6]}}</span> <small>{{m[7]|fechahora}}</small>{% endif %}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="vacio">Todavía no hay candidatos evaluados.</td></tr>
+    {% endfor %}
+  </table></div>
+</div>
+
+{% if abierta and tiene('Gestionar reservas') %}
+<div class="panel peligro">
+  <h2>Cancelar solicitud</h2>
+  <p class="nota">La solicitud no se borra: queda Cancelada con su motivo, y sus recursos reservados regresan a Disponible.</p>
+  <form action="/cancelarsolicitud" method="POST" class="validar mini-form" data-confirmar="¿Cancelar la solicitud {{Solicitud[0]}}?">
+    <input type="hidden" name="id_solicitud" value="{{Solicitud[0]}}">
+    <input type="text" name="motivo" placeholder="Motivo de la cancelación" maxlength="200" required>
+    <button class="btn btn-peligro" type="submit">Cancelar solicitud</button>
+  </form>
+</div>
+{% endif %}
+
+{% include 'pie.html' %}

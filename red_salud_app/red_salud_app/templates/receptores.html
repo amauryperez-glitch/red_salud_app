@@ -1,0 +1,62 @@
+{% include 'encabezado.html' %}
+
+<h1 class="titulo">Receptores</h1>
+<p class="sub">Pacientes que necesitan sangre o un órgano</p>
+
+<details class="nuevo">
+  <summary>+ Registrar receptor</summary>
+  <div class="cuerpo">
+  <!-- inicio formulario -->
+  <form action="/registrareceptor" method="POST" class="validar">
+    <div class="campos">
+      <div><label for="nombres">Nombres *</label>
+           <input type="text" id="nombres" name="nombres" maxlength="100" required></div>
+      <div><label for="apellidos">Apellidos *</label>
+           <input type="text" id="apellidos" name="apellidos" maxlength="100" required></div>
+      <div><label for="fecha_nacimiento">Fecha de nacimiento *</label>
+           <input type="date" id="fecha_nacimiento" name="fecha_nacimiento" required data-no-futura></div>
+      <div><label for="id_sexo">Sexo *</label>
+           <select id="id_sexo" name="id_sexo" required>
+             <option value="">Selecciona</option>
+             {% for s in Sexos %}<option value="{{s[0]}}">{{s[1]}}</option>{% endfor %}
+           </select></div>
+      <div><label for="correo">Correo electrónico</label>
+           <input type="email" id="correo" name="correo" maxlength="150"></div>
+      <div><label for="telefono">Teléfono (10 a 15 dígitos)</label>
+           <input type="tel" id="telefono" name="telefono" maxlength="15" pattern="[0-9]{10,15}" title="Solo números, de 10 a 15 dígitos" placeholder="8112345678"></div>
+      <div><label for="id_tipo_sanguineo">Tipo sanguíneo *</label>
+           <select id="id_tipo_sanguineo" name="id_tipo_sanguineo" required>
+             <option value="">Selecciona</option>
+             {% for t in Tipos %}<option value="{{t[0]}}">{{t[1]}}</option>{% endfor %}
+           </select></div>
+    </div>
+    <button class="btn" type="submit">Guardar</button>
+    <button class="btn btn-sec" type="reset">Limpiar</button>
+  </form>
+  <!-- fin formulario -->
+  </div>
+</details>
+
+<form class="filtros" action="/receptores" method="GET">
+  <input type="search" name="q" value="{{request.args.get('q', '')}}" placeholder="Buscar por nombre">
+  <button class="btn btn-sec" type="submit">Buscar</button>
+</form>
+
+<div class="tabla"><table>
+  <tr><th>Id</th><th>Nombre</th><th>Tipo</th><th>Edad</th><th>Estado</th><th>Correo</th><th>Solicitudes</th></tr>
+  {% for r in Receptores %}
+  <tr>
+    <td>{{r[0]}}</td>
+    <td>{{r[1]}}</td>
+    <td><b>{{r[2]}}</b></td>
+    <td>{{r[3]}}</td>
+    <td><span class="etiqueta {{r[4]|lower|replace(' ', '-')}}">{{r[4]}}</span></td>
+    <td>{{r[5] or ''}}</td>
+    <td>{{r[6]}}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="7" class="vacio">No hay receptores.</td></tr>
+  {% endfor %}
+</table></div>
+
+{% include 'pie.html' %}

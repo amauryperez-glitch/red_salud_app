@@ -1,0 +1,32 @@
+{% include 'encabezado.html' %}
+
+<h1 class="titulo">Traslados</h1>
+<p class="sub">Historial de traslados con su estado, lugar de salida y de llegada (vista_traslados)</p>
+
+<form class="filtros" action="/traslados" method="GET">
+  <select name="estado">
+    <option value="">Todos los estados</option>
+    {% for e in Estados %}<option value="{{e[1]}}" {% if request.args.get('estado') == e[1] %}selected{% endif %}>{{e[1]}}</option>{% endfor %}
+  </select>
+  <button class="btn btn-sec" type="submit">Filtrar</button>
+</form>
+
+<div class="tabla"><table>
+  <tr><th>Traslado</th><th>Salida de</th><th>Llega a</th><th>Medio</th><th>Salió</th><th>Llegada estimada</th><th>Llegó</th><th>Estado</th></tr>
+  {% for t in Traslados %}
+  <tr>
+    <td>{{t[0]}}</td>
+    <td>{{t[1]}}</td>
+    <td>{{t[2]}}</td>
+    <td>{{t[7]}}</td>
+    <td>{{t[4]|fechahora}}</td>
+    <td>{{t[5]|fechahora}}</td>
+    <td>{{t[6]|fechahora}}</td>
+    <td><span class="etiqueta {{t[3]|lower|replace(' ', '-')}}">{{t[3]}}</span></td>
+  </tr>
+  {% else %}
+  <tr><td colspan="8" class="vacio">No hay traslados.</td></tr>
+  {% endfor %}
+</table></div>
+
+{% include 'pie.html' %}

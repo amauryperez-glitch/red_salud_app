@@ -1,0 +1,48 @@
+{% include 'encabezado.html' %}
+
+<div class="encabezado">
+  <div><h1 class="titulo">Personal y usuarios</h1><p class="sub">Médicos, laboratorio, logística y coordinadores de la red</p></div>
+  <a class="btn" href="/insertarpersonal">+ Registrar personal</a>
+</div>
+
+<form class="filtros" action="/personal" method="GET">
+  <input type="search" name="q" value="{{request.args.get('q', '')}}" placeholder="Nombre o cédula">
+  <select name="institucion">
+    <option value="">Todas las instituciones</option>
+    {% for i in Instituciones %}<option value="{{i[0]}}" {% if request.args.get('institucion') == i[0]|string %}selected{% endif %}>{{i[1]}}</option>{% endfor %}
+  </select>
+  <select name="cargo">
+    <option value="">Todos los cargos</option>
+    {% for c in Cargos %}<option value="{{c[0]}}" {% if request.args.get('cargo') == c[0]|string %}selected{% endif %}>{{c[1]}}</option>{% endfor %}
+  </select>
+  <select name="estado">
+    <option value="">Todos los estados</option>
+    {% for e in Estados %}<option value="{{e[0]}}" {% if request.args.get('estado') == e[0]|string %}selected{% endif %}>{{e[1]}}</option>{% endfor %}
+  </select>
+  <button class="btn btn-sec" type="submit">Filtrar</button>
+  <a class="btn btn-sec" href="/personal">Limpiar</a>
+</form>
+
+<p class="nota">{{Personal|length}} persona(s). Usuario vacío = todavía no tiene cuenta (LEFT JOIN personal → usuarios).</p>
+<div class="tabla"><table>
+  <tr><th>Id</th><th>Nombre</th><th>Cargo</th><th>Institución</th><th>Cédula</th><th>Estado</th><th>Usuario</th><th></th></tr>
+  {% for p in Personal %}
+  <tr>
+    <td>{{p[0]}}</td>
+    <td>{{p[1]}}</td>
+    <td>{{p[2]}}</td>
+    <td>{{p[3]}}</td>
+    <td>{{p[4] or ''}}</td>
+    <td><span class="etiqueta {{p[5]|lower}}">{{p[5]}}</span></td>
+    <td>{% if p[6] %}{{p[6]}} <span class="etiqueta {{p[7]|lower}}">{{p[7]}}</span>{% else %}<span class="nota">Sin usuario</span>{% endif %}</td>
+    <td class="acciones-fila">
+      <a class="btn btn-sec btn-chico" href="/empleado/{{p[0]}}">Ver</a>
+      <a class="btn btn-sec btn-chico" href="/editarpersonal/{{p[0]}}">Editar</a>
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="8" class="vacio">No hay personal con esos filtros.</td></tr>
+  {% endfor %}
+</table></div>
+
+{% include 'pie.html' %}

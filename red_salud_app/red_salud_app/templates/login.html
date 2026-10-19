@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Iniciar sesión · Red de Salud</title>
+<link rel="stylesheet" href="{{url_for('static', filename='css/estilos.css')}}">
+</head>
+<body>
+<div class="entrada">
+  <div class="caja">
+    <div class="logo-grande">RS</div>
+    <h1>Red de Salud</h1>
+    <p>Red regional de bancos de sangre y donación de órganos</p>
+
+    <div class="ingreso">
+      {% if request.args.get('ok') %}<div class="mensaje ok">{{request.args.get('ok')}}</div>{% endif %}
+      {% if request.args.get('error') %}<div class="mensaje error">{{request.args.get('error')}}</div>{% endif %}
+      <!-- inicio formulario -->
+      <form action="/entrar" method="POST" class="validar">
+        <label for="usuario">Usuario</label>
+        <input type="text" id="usuario" name="usuario" maxlength="50" required autofocus>
+        <label for="password" class="separado">Contraseña</label>
+        <input type="password" id="password" name="password" maxlength="100" required>
+        <button class="btn" type="submit">Iniciar sesión</button>
+      </form>
+      <!-- fin formulario -->
+    </div>
+  </div>
+</div>
+<script src="{{url_for('static', filename='js/validaciones.js')}}"></script>
+</body>
+</html>

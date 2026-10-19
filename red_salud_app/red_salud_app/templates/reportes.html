@@ -1,0 +1,53 @@
+{% include 'encabezado.html' %}
+
+<h1 class="titulo">Reportes de la red</h1>
+<p class="sub">Información de vistas y consultas SQL (06_consultas.sql)</p>
+
+<div class="panel">
+  <h2>Solicitudes activas por hospital</h2>
+  <p class="nota">vista_hospitales_solicitudes_activas</p>
+  <div class="tabla"><table>
+    <tr><th>Hospital</th><th>Solicitud</th><th>Urgencia</th><th>Tipo</th><th>Cantidad</th><th>Estado</th><th>Solicitada</th><th>Límite</th><th>Motivo</th></tr>
+    {% for a in Activas %}
+    <tr>
+      <td>{{a[0]}}</td>
+      <td><a href="/solicitud/{{a[1]}}">{{a[1]}}</a></td>
+      <td><span class="etiqueta {{a[2]|lower}}">{{a[2]}}</span></td>
+      <td><b>{{a[3]}}</b></td>
+      <td>{{a[4]}}</td>
+      <td><span class="etiqueta {{a[5]|lower|replace(' ', '-')}}">{{a[5]}}</span></td>
+      <td>{{a[6]|fechahora}}</td>
+      <td>{{a[7]|fechahora}}</td>
+      <td>{{a[8]}}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="9" class="vacio">No hay solicitudes activas.</td></tr>
+    {% endfor %}
+  </table></div>
+</div>
+
+<div class="dos">
+<div class="panel">
+  <h2>Aprovechamiento de unidades por institución</h2>
+  <p class="nota">Consulta 11 (CTE WITH): unidades producidas, utilizadas y descartadas</p>
+  <div class="tabla"><table>
+    <tr><th>Institución</th><th>Producidas</th><th>Utilizadas</th><th>Descartadas</th><th>En inventario</th><th>% aprovechado</th><th>% desperdicio</th></tr>
+    {% for r in Aprovechamiento %}
+    <tr><td>{{r[0]}}</td><td>{{r[1]}}</td><td>{{r[2]}}</td><td>{{r[3]}}</td><td>{{r[4]}}</td><td><b>{{r[5]}}%</b></td><td>{{r[6]}}%</td></tr>
+    {% endfor %}
+  </table></div>
+</div>
+
+<div class="panel">
+  <h2>Ranking de hospitales por unidades transfundidas</h2>
+  <p class="nota">Consulta 12 (funciones de ventana RANK y SUM OVER)</p>
+  <div class="tabla"><table>
+    <tr><th>#</th><th>Hospital</th><th>Unidades</th><th>Acumulado</th><th>% del total</th></tr>
+    {% for r in Ranking %}
+    <tr><td>{{r[2]}}</td><td>{{r[0]}}</td><td>{{r[1]}}</td><td>{{r[3]}}</td><td>{{r[4]}}%</td></tr>
+    {% endfor %}
+  </table></div>
+</div>
+</div>
+
+{% include 'pie.html' %}

@@ -1,0 +1,78 @@
+{% include 'encabezado.html' %}
+
+<h1 class="titulo">Órganos</h1>
+<p class="sub">Órganos en la red y su evaluación de viabilidad</p>
+
+{% if 'Procuración de órganos' in session['servicios'] %}
+<details class="nuevo">
+  <summary>+ Registrar órgano</summary>
+  <div class="cuerpo">
+  <!-- inicio formulario -->
+  <form action="/registraorgano" method="POST" class="validar">
+    <div class="campos">
+      <div><label for="id_donante">Donante *</label>
+           <select id="id_donante" name="id_donante" required>
+             <option value="">Selecciona</option>
+             {% for d in Donantes %}<option value="{{d[0]}}">{{d[1]}}</option>{% endfor %}
+           </select></div>
+      <div><label for="id_tipo_organo">Órgano *</label>
+           <select id="id_tipo_organo" name="id_tipo_organo" required>
+             {% for o in TiposOrgano %}<option value="{{o[0]}}">{{o[1]}}</option>{% endfor %}
+           </select></div>
+      <div><label for="id_lado">Lado (solo riñón y pulmón)</label>
+           <select id="id_lado" name="id_lado">
+             <option value="">No aplica</option>
+             {% for l in Lados %}<option value="{{l[0]}}">{{l[1]}}</option>{% endfor %}
+           </select></div>
+      <div><label for="peso_gramos">Peso (g)</label>
+           <input type="number" id="peso_gramos" name="peso_gramos" step="0.01" min="0.01"></div>
+      <div><label for="tamano_cm">Tamaño (cm)</label>
+           <input type="number" id="tamano_cm" name="tamano_cm" step="0.01" min="0.01"></div>
+      <div><label for="horas_viabilidad">Horas de viabilidad *</label>
+           <input type="number" id="horas_viabilidad" name="horas_viabilidad" value="24" min="1" required></div>
+    </div>
+    <p class="ayuda">Se registra en tu institución: {{session['institucion']}}. Queda En evaluación hasta registrar una evaluación.</p>
+    <button class="btn" type="submit">Guardar</button>
+  </form>
+  <!-- fin formulario -->
+  </div>
+</details>
+{% endif %}
+
+<div class="tabla"><table>
+  <tr><th>Folio</th><th>Órgano</th><th>Tipo</th><th>Institución</th><th>Estado</th><th>Viabilidad</th><th>Límite</th><th>Última evaluación</th><th>Acción</th></tr>
+  {% for o in Organos %}
+  <tr>
+    <td>{{o[1]}}</td>
+    <td>{{o[2]}}{% if o[8] %} <small>{{o[8]}} cm</small>{% endif %}</td>
+    <td><b>{{o[3]}}</b></td>
+    <td>{{o[4]}}</td>
+    <td><span class="etiqueta {{o[5]|lower|replace(' ', '-')}}">{{o[5]}}</span></td>
+    <td><span class="etiqueta {{o[6]|lower|replace(' ', '-')}}">{{o[6]}}</span></td>
+    <td>{{o[7]|fechahora}}</td>
+    <td>{{o[9] or 'Sin evaluar'}}</td>
+    <td>
+      {% if o[5] != 'En traslado' %}
+      <details class="accion"><summary>Evaluar</summary>
+        <div class="caja-accion">
+        <form action="/evaluarorgano" method="POST">
+          <input type="hidden" name="id_recurso" value="{{o[0]}}">
+          <label>Tipo de evaluación</label>
+          <select name="id_tipo_evaluacion">{% for t in TiposEval %}<option value="{{t[0]}}">{{t[1]}}</option>{% endfor %}</select>
+          <label class="separado">Resultado</label>
+          <select name="id_resultado">{% for r in ResEval %}<option value="{{r[0]}}">{{r[1]}}</option>{% endfor %}</select>
+          <label class="separado">Observaciones</label>
+          <input type="text" name="observaciones">
+          <button class="btn btn-chico separado" type="submit">Guardar evaluación</button>
+        </form>
+        </div>
+      </details>
+      {% endif %}
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="9" class="vacio">No hay órganos en la red en este momento.</td></tr>
+  {% endfor %}
+</table></div>
+
+{% include 'pie.html' %}

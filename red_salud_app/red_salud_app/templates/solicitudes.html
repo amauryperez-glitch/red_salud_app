@@ -1,0 +1,53 @@
+{% include 'encabezado.html' %}
+
+<div class="encabezado">
+  <div><h1 class="titulo">Solicitudes</h1>
+       <p class="sub">Solicitudes de componentes sanguíneos y de órganos{% if not tiene('Consultar reportes regionales') %} de tu institución{% endif %}</p></div>
+  {% if tiene('Registrar solicitudes') %}<a class="btn" href="/insertarsolicitud">+ Nueva solicitud</a>{% endif %}
+</div>
+
+<form class="filtros" action="/solicitudes" method="GET">
+  <input type="search" name="q" value="{{request.args.get('q', '')}}" placeholder="Receptor o folio">
+  <select name="estado">
+    <option value="">Todos los estados</option>
+    {% for e in Estados %}<option value="{{e[0]}}" {% if request.args.get('estado') == e[0]|string %}selected{% endif %}>{{e[1]}}</option>{% endfor %}
+  </select>
+  <select name="urgencia">
+    <option value="">Todas las urgencias</option>
+    {% for u in Urgencias %}<option value="{{u[0]}}" {% if request.args.get('urgencia') == u[0]|string %}selected{% endif %}>{{u[1]}}</option>{% endfor %}
+  </select>
+  <select name="recurso">
+    <option value="">Sangre y órganos</option>
+    <option value="1" {% if request.args.get('recurso') == '1' %}selected{% endif %}>Solo sangre</option>
+    <option value="2" {% if request.args.get('recurso') == '2' %}selected{% endif %}>Solo órganos</option>
+  </select>
+  <button class="btn btn-sec" type="submit">Filtrar</button>
+  <a class="btn btn-sec" href="/solicitudes">Limpiar</a>
+</form>
+
+<p class="nota">{{Solicitudes|length}} línea(s) de solicitud</p>
+<div class="tabla"><table>
+  <tr><th>Folio</th><th>Hospital</th><th>Receptor</th><th>Pide</th><th>Asignadas</th><th>Urgencia</th><th>Estado</th><th>Fecha</th><th></th></tr>
+  {% for s in Solicitudes %}
+  <tr>
+    <td>{{s[0]}}</td>
+    <td>{{s[2]}}</td>
+    <td>{{s[3]}}</td>
+    <td>{{s[4]}}</td>
+    <td>{{s[10]}} de {{s[5]}}</td>
+    <td><span class="etiqueta {{s[6]|lower}}">{{s[6]}}</span></td>
+    <td><span class="etiqueta {{s[7]|lower|replace(' ', '-')}}">{{s[7]}}</span></td>
+    <td>{{s[8]|fechahora}}</td>
+    <td class="acciones-fila">
+      <a class="btn btn-sec btn-chico" href="/solicitud/{{s[0]}}">Ver</a>
+      {% if s[7] in ['En proceso', 'Aprobada'] and tiene('Consultar compatibilidad') %}
+      <a class="btn btn-sec btn-chico" href="/matching/{{s[1]}}">Matching</a>
+      {% endif %}
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="9" class="vacio">No hay solicitudes con esos filtros.</td></tr>
+  {% endfor %}
+</table></div>
+
+{% include 'pie.html' %}

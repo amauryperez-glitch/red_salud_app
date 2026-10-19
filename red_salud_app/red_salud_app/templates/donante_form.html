@@ -1,0 +1,62 @@
+{% include 'encabezado.html' %}
+
+{% if Donante %}
+<h1 class="titulo">Editar donante {{Donante[0]}}</h1>
+<p class="sub">Modifica los datos del donante</p>
+{% else %}
+<h1 class="titulo">Registrar donante</h1>
+<p class="sub">El donante debe tener entre 18 y 65 años. Se registra en tu institución.</p>
+{% endif %}
+
+<div class="panel formulario">
+<!-- inicio formulario -->
+<form action="{% if Donante %}/actualizardonante{% else %}/registradonante{% endif %}" method="POST" class="validar">
+  {% if Donante %}<input type="hidden" name="id_donante" value="{{Donante[0]}}">{% endif %}
+  <div class="campos">
+    <!-- nombres: character varying(100) NOT NULL -->
+    <div><label for="nombres">Nombres *</label>
+         <input type="text" id="nombres" name="nombres" maxlength="100" required value="{{Donante[2] if Donante else ''}}"></div>
+    <!-- apellidos: character varying(100) NOT NULL -->
+    <div><label for="apellidos">Apellidos *</label>
+         <input type="text" id="apellidos" name="apellidos" maxlength="100" required value="{{Donante[3] if Donante else ''}}"></div>
+    <!-- fecha_nacimiento: date NOT NULL -->
+    <div><label for="fecha_nacimiento">Fecha de nacimiento *</label>
+         <input type="date" id="fecha_nacimiento" name="fecha_nacimiento" required value="{{Donante[4] if Donante else ''}}"
+                data-no-futura {% if not Donante %}data-edad-min="18" data-edad-max="65"{% endif %}></div>
+    <!-- id_sexo: catalogo cat_sexo -->
+    <div><label for="id_sexo">Sexo *</label>
+         <select id="id_sexo" name="id_sexo" required>
+           <option value="">Selecciona</option>
+           {% for s in Sexos %}<option value="{{s[0]}}" {% if Donante and Donante[10] == s[0] %}selected{% endif %}>{{s[1]}}</option>{% endfor %}
+         </select></div>
+    <!-- correo: character varying(150) -->
+    <div><label for="correo">Correo electrónico</label>
+         <input type="email" id="correo" name="correo" maxlength="150" value="{{(Donante[5] or '') if Donante else ''}}"></div>
+    <!-- telefono: character varying(15) -->
+    <div><label for="telefono">Teléfono (10 a 15 dígitos)</label>
+         <input type="tel" id="telefono" name="telefono" maxlength="15" pattern="[0-9]{10,15}" title="Solo números, de 10 a 15 dígitos"
+                placeholder="8112345678" value="{{(Donante[13] or '') if Donante else ''}}"></div>
+    <!-- id_tipo_sanguineo: catalogo cat_tipos_sanguineo -->
+    <div><label for="id_tipo_sanguineo">Tipo sanguíneo *</label>
+         <select id="id_tipo_sanguineo" name="id_tipo_sanguineo" required>
+           <option value="">Selecciona</option>
+           {% for t in Tipos %}<option value="{{t[0]}}" {% if Donante and Donante[11] == t[0] %}selected{% endif %}>{{t[1]}}</option>{% endfor %}
+         </select>
+         {% if Donante and Donante[14] > 0 %}<div class="ayuda">Tiene {{Donante[14]}} donación(es): el tipo ya no se puede cambiar.</div>{% endif %}</div>
+    {% if Donante %}
+    <!-- id_estado_donante: catalogo cat_estados_donante -->
+    <div><label for="id_estado_donante">Estado *</label>
+         <select id="id_estado_donante" name="id_estado_donante" required>
+           {% for e in Estados %}<option value="{{e[0]}}" {% if Donante[12] == e[0] %}selected{% endif %}>{{e[1]}}</option>{% endfor %}
+         </select>
+         <div class="ayuda">Activo = apto para donar; Diferido = no apto por ahora.</div></div>
+    {% endif %}
+  </div>
+  <button class="btn" type="submit">Guardar</button>
+  <button class="btn btn-sec" type="reset">Limpiar</button>
+  <a class="btn btn-sec" href="{% if Donante %}/donante/{{Donante[0]}}{% else %}/donantes{% endif %}">Cancelar</a>
+</form>
+<!-- fin formulario -->
+</div>
+
+{% include 'pie.html' %}

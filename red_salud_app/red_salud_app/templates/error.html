@@ -1,0 +1,25 @@
+{% if session.get('id_usuario') %}
+{% include 'encabezado.html' %}
+{% else %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Red de Salud</title>
+<link rel="stylesheet" href="{{url_for('static', filename='css/estilos.css')}}">
+</head>
+<body>
+<main class="contenido solo">
+{% endif %}
+
+<h1 class="titulo">{{titulo}}</h1>
+<div class="mensaje error">{{mensaje}}</div>
+<p><a class="btn btn-sec" href="/">Volver</a></p>
+
+{% if session.get('id_usuario') %}
+{% include 'pie.html' %}
+{% else %}
+</main>
+</body>
+</html>
+{% endif %}

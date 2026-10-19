@@ -1,0 +1,71 @@
+{% include 'encabezado.html' %}
+
+<div class="bienvenida">
+  <div>
+    <h1>Hola, {{session['nombre']}}</h1>
+    <p>{{session['cargo']}} · {{session['institucion']}}<br>Rol: {{session['roles']}}</p>
+  </div>
+</div>
+
+{% if tiene('Consultar inventario y alertas') %}
+<div class="panel">
+  <h2>Inventario bajo el mínimo</h2>
+  <p class="nota">Unidades disponibles de cada banco por componente, comparadas con su mínimo (CROSS JOIN banco × componente).</p>
+  {% for m in Minimos %}
+    <div class="alerta rojo"><b>{{m[0]}}</b> · {{m[1]}}: hay {{m[2]}}, mínimo {{m[3]}}</div>
+  {% else %}
+    <div class="vacio">Todos los bancos están en su mínimo o arriba.</div>
+  {% endfor %}
+</div>
+
+<div class="panel">
+  <h2>Unidades próximas a caducar (7 días)</h2>
+  <p class="nota">Fuente: vista_inventario_proximo_a_caducar</p>
+  {% if Proximos %}
+  <div class="tabla"><table>
+    <tr><th>Folio</th><th>Institución</th><th>Tipo</th><th>Componente</th><th>Caduca</th><th>Días</th><th>ml</th></tr>
+    {% for p in Proximos %}
+    <tr>
+      <td>{{p[0]}}</td>
+      <td>{{p[1]}}</td>
+      <td><b>{{p[2]}}</b></td>
+      <td>{{p[3]}}</td>
+      <td>{{p[4]|fechahora}}</td>
+      <td>{{p[5]}}</td>
+      <td>{{p[6]}}</td>
+    </tr>
+    {% endfor %}
+  </table></div>
+  {% else %}
+  <div class="vacio">No hay unidades que caduquen en los próximos 7 días.</div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if tiene('Registrar solicitudes') or tiene('Consultar compatibilidad') %}
+<div class="panel">
+  <h2>Solicitudes activas{% if not tiene('Consultar reportes regionales') %} de tu institución{% endif %}</h2>
+  <p class="nota">Fuente: vista_hospitales_solicitudes_activas (En proceso o Aprobadas, la más urgente primero)</p>
+  {% if Activas %}
+  <div class="tabla"><table>
+    <tr><th>Solicitud</th><th>Hospital</th><th>Urgencia</th><th>Tipo</th><th>Cantidad</th><th>Estado</th><th>Fecha límite</th><th></th></tr>
+    {% for a in Activas %}
+    <tr>
+      <td>{{a[0]}}</td>
+      <td>{{a[1]}}</td>
+      <td><span class="etiqueta {{a[2]|lower}}">{{a[2]}}</span></td>
+      <td><b>{{a[3]}}</b></td>
+      <td>{{a[4]}}</td>
+      <td><span class="etiqueta {{a[5]|lower|replace(' ', '-')}}">{{a[5]}}</span></td>
+      <td>{{a[6]|fechahora}}</td>
+      <td><a class="btn btn-sec btn-chico" href="/solicitud/{{a[0]}}">Ver</a></td>
+    </tr>
+    {% endfor %}
+  </table></div>
+  {% else %}
+  <div class="vacio">No hay solicitudes activas.</div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% include 'pie.html' %}
