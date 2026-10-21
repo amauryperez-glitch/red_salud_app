@@ -1,6 +1,6 @@
 -- =====================================================================
 -- 03_funciones.sql
--- Funciones (CREATE FUNCTION) de apoyo para los procedimientos y vistas.
+-- 9 funciones (CREATE FUNCTION) de apoyo para los procedimientos y vistas.
 -- OJO: son FUNCIONES (se usan con SELECT o dentro de expresiones), NO
 -- cuentan como procedimientos almacenados (esos están en 04, con CALL).
 --
@@ -310,5 +310,62 @@ BEGIN
     END IF;
 
     RETURN v_p_compat + v_peso + v_p_cerca + v_p_cad + v_p_disp;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- F8. fn_validar_persona
+-- Revisa los datos de una persona antes de guardarla (la usan los
+-- procedimientos de donantes, receptores y personal). Si algo no cumple
+-- lanza RAISE EXCEPTION con el mensaje para el usuario.
+-- p_edad_min / p_edad_max = NULL para no revisar la edad.
+-- Ejemplo: SELECT fn_validar_persona('Ana', 'Ruiz', '1990-01-01', NULL, '8112345678', 18, 65);
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION fn_validar_persona(
+    p_nombres VARCHAR,
+    p_apellidos VARCHAR,
+    p_fecha_nacimiento DATE,
+    p_correo VARCHAR,
+    p_telefono VARCHAR,
+    p_edad_min INTEGER,
+    p_edad_max INTEGER
+)
+RETURNS VOID
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_edad INTEGER;
+BEGIN
+    IF p_nombres IS NULL OR trim(p_nombres) = '' OR p_apellidos IS NULL OR trim(p_apellidos) = '' THEN
+        RAISE EXCEPTION 'Nombre y apellidos son obligatorios';
+    END IF;
+
+    IF length(p_nombres) > 100 OR length(p_apellidos) > 100 THEN
+        RAISE EXCEPTION 'Nombre y apellidos tienen máximo 100 caracteres';
+    END IF;
+
+    IF p_fecha_nacimiento IS NULL THEN
+        RAISE EXCEPTION 'La fecha de nacimiento es obligatoria';
+    END IF;
+
+    IF p_fecha_nacimiento > CURRENT_DATE OR p_fecha_nacimiento < DATE '1900-01-01' THEN
+        RAISE EXCEPTION 'La fecha de nacimiento no es válida';
+    END IF;
+
+    IF p_edad_min IS NOT NULL THEN
+        v_edad := fn_calcular_edad(p_fecha_nacimiento);
+        IF v_edad < p_edad_min OR v_edad > p_edad_max THEN
+            RAISE EXCEPTION 'La edad debe estar entre % y % años (tiene %)', p_edad_min, p_edad_max, v_edad;
+        END IF;
+    END IF;
+
+    IF p_correo IS NOT NULL AND p_correo !~* '^[^@\s]+@[^@\s]+\.[^@\s]+$' THEN
+        RAISE EXCEPTION 'El correo no tiene un formato válido';
+    END IF;
+
+    IF p_telefono IS NOT NULL AND p_telefono !~ '^[0-9]{10,15}$' THEN
+        RAISE EXCEPTION 'El teléfono debe tener de 10 a 15 dígitos, sin espacios ni guiones';
+    END IF;
 END;
 $$;

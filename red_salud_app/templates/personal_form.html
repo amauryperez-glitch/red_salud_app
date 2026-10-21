@@ -1,27 +1,69 @@
-{% extends 'base.html' %}
-{% from '_macros.html' import opciones, campos_persona %}
-{% block titulo %}{{ 'Editar personal' if persona else 'Registrar personal' }}{% endblock %}
-{% block contenido %}
-<h1 class="titulo">{{ 'Editar personal ' ~ persona.id_personal if persona else 'Registrar personal' }}</h1>
+{% include 'encabezado.html' %}
+
+{% if Empleado %}
+<h1 class="titulo">Editar personal {{Empleado[0]}}</h1>
+{% else %}
+<h1 class="titulo">Registrar personal</h1>
+{% endif %}
 <p class="sub">Debe ser mayor de edad. La institución debe estar Activa.</p>
+
 <div class="panel formulario">
-<form method="POST" class="validar">
+<!-- inicio formulario -->
+<form action="{% if Empleado %}/actualizarpersonal{% else %}/registrapersonal{% endif %}" method="POST" class="validar">
+  {% if Empleado %}<input type="hidden" name="id_personal" value="{{Empleado[0]}}">{% endif %}
   <div class="campos">
-    {{ campos_persona(valores, sexos, 18) }}
+    <!-- nombres: character varying(100) NOT NULL -->
+    <div><label for="nombres">Nombres *</label>
+         <input type="text" id="nombres" name="nombres" maxlength="100" required value="{{Empleado[2] if Empleado else ''}}"></div>
+    <!-- apellidos: character varying(100) NOT NULL -->
+    <div><label for="apellidos">Apellidos *</label>
+         <input type="text" id="apellidos" name="apellidos" maxlength="100" required value="{{Empleado[3] if Empleado else ''}}"></div>
+    <!-- fecha_nacimiento: date NOT NULL -->
+    <div><label for="fecha_nacimiento">Fecha de nacimiento *</label>
+         <input type="date" id="fecha_nacimiento" name="fecha_nacimiento" required data-no-futura data-edad-min="18"
+                value="{{Empleado[4] if Empleado else ''}}"></div>
+    <!-- id_sexo: catalogo cat_sexo -->
+    <div><label for="id_sexo">Sexo *</label>
+         <select id="id_sexo" name="id_sexo" required>
+           <option value="">Selecciona</option>
+           {% for s in Sexos %}<option value="{{s[0]}}" {% if Empleado and Empleado[22] == s[0] %}selected{% endif %}>{{s[1]}}</option>{% endfor %}
+         </select></div>
+    <!-- correo: character varying(150) -->
+    <div><label for="correo">Correo electrónico</label>
+         <input type="email" id="correo" name="correo" maxlength="150" value="{{(Empleado[5] or '') if Empleado else ''}}"></div>
+    <!-- telefono: character varying(15) -->
+    <div><label for="telefono">Teléfono (10 a 15 dígitos)</label>
+         <input type="tel" id="telefono" name="telefono" maxlength="15" pattern="[0-9]{10,15}" title="Solo números, de 10 a 15 dígitos"
+                placeholder="8112345678" value="{{(Empleado[25] or '') if Empleado else ''}}"></div>
+    <!-- id_institucion: instituciones activas -->
     <div><label for="id_institucion">Institución *</label>
-         <select id="id_institucion" name="id_institucion" required>{{ opciones(instituciones_activas, valores.id_institucion, 'Selecciona') }}</select></div>
+         <select id="id_institucion" name="id_institucion" required>
+           <option value="">Selecciona</option>
+           {% for i in Instituciones %}<option value="{{i[0]}}" {% if Empleado and Empleado[23] == i[0] %}selected{% endif %}>{{i[1]}}</option>{% endfor %}
+         </select></div>
+    <!-- id_cargo: catalogo cat_cargos -->
     <div><label for="id_cargo">Cargo *</label>
-         <select id="id_cargo" name="id_cargo" required>{{ opciones(cargos, valores.id_cargo, 'Selecciona') }}</select></div>
+         <select id="id_cargo" name="id_cargo" required>
+           <option value="">Selecciona</option>
+           {% for c in Cargos %}<option value="{{c[0]}}" {% if Empleado and Empleado[24] == c[0] %}selected{% endif %}>{{c[1]}}</option>{% endfor %}
+         </select></div>
+    <!-- cedula_profesional: character varying(20) -->
     <div><label for="cedula">Cédula profesional</label>
-         <input type="text" id="cedula" name="cedula" maxlength="20" value="{{ valores.cedula or '' }}"></div>
-    {% if persona %}
+         <input type="text" id="cedula" name="cedula" maxlength="20" value="{{(Empleado[10] or '') if Empleado else ''}}"></div>
+    {% if Empleado %}
+    <!-- id_estado_personal: catalogo cat_estados_personal -->
     <div><label for="id_estado_personal">Estado *</label>
-         <select id="id_estado_personal" name="id_estado_personal" required>{{ opciones(estados_personal, valores.id_estado_personal) }}</select>
+         <select id="id_estado_personal" name="id_estado_personal" required>
+           {% for e in Estados %}<option value="{{e[0]}}" {% if Empleado[12] == e[0] %}selected{% endif %}>{{e[1]}}</option>{% endfor %}
+         </select>
          <div class="ayuda">Si no queda Activo, su usuario también se desactiva.</div></div>
     {% endif %}
   </div>
   <button class="btn" type="submit">Guardar</button>
-  <a class="btn btn-sec" href="{{ url_for('personal_detalle', id_personal=persona.id_personal) if persona else url_for('personal') }}">Cancelar</a>
+  <button class="btn btn-sec" type="reset">Limpiar</button>
+  <a class="btn btn-sec" href="{% if Empleado %}/empleado/{{Empleado[0]}}{% else %}/personal{% endif %}">Cancelar</a>
 </form>
+<!-- fin formulario -->
 </div>
-{% endblock %}
+
+{% include 'pie.html' %}

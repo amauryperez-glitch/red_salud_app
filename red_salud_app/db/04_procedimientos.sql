@@ -4,14 +4,15 @@
 -- Ejecutar después de 03_funciones.sql:
 --   sudo -u postgres psql < 04_procedimientos.sql
 --
--- Son 16 procedimientos con los pasos del proceso de sangre y de órganos.
--- Los 16 se llaman desde Flask (app.py). Las funciones de apoyo (fn_*)
--- están en 03 y NO cuentan como procedimientos.
---
--- Cada procedimiento documenta: propósito, parámetros de entrada y salida,
--- tablas, reglas de negocio, manejo de excepciones, ejemplo de invocación
--- y resultado esperado. El resultado obtenido de cada caso está en
--- 07_resultado_pruebas.txt (salida de 07_pruebas_procedimientos.sql).
+-- Son 41 procedimientos y TODOS se llaman desde Flask (app.py); la app
+-- no ejecuta SQL directo, solo CALL + FETCH:
+--   PARTE A (SP1-SP16):  reglas de negocio del proceso de sangre y órganos.
+--     Cada uno documenta propósito, parámetros, tablas, reglas, manejo de
+--     excepciones, ejemplo de invocación y resultado esperado; el resultado
+--     obtenido está en 07_resultado_pruebas.txt.
+--   PARTE B (SP17-SP41): consultas (REFCURSOR) y altas/cambios/bajas que
+--     usan las pantallas.
+-- Las funciones de apoyo (fn_*) están en 03 y NO cuentan como procedimientos.
 --
 -- Manejo de excepciones (todos): cuando una regla no se cumple se lanza
 -- RAISE EXCEPTION con un mensaje para el usuario; PostgreSQL deshace todo
@@ -32,6 +33,10 @@
 -- =====================================================================
 \set ON_ERROR_STOP on
 \c banco_sangre_organos
+
+-- =====================================================================
+-- PARTE A. PROCEDIMIENTOS DE REGLAS DE NEGOCIO
+-- =====================================================================
 
 -- ---------------------------------------------------------------------
 -- SP1. sp_validar_login
@@ -1688,5 +1693,1381 @@ BEGIN
     UPDATE matching SET disponible = FALSE
     WHERE id_solicitud_detalle IN (SELECT id_solicitud_detalle FROM solicitudes_detalle
                                    WHERE id_solicitud = p_id_solicitud);
+END;
+$$;
+
+
+-- =====================================================================
+-- PARTE B. PROCEDIMIENTOS DE CONSULTA Y CRUD QUE USAN LAS PANTALLAS
+-- Las consultas regresan REFCURSOR: Flask hace CALL ... y luego
+-- FETCH ALL FROM cursor_<nombre>. El orden de las columnas es el que
+-- usan las plantillas (fila[0], fila[1], ...).
+-- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- SP17. sp_obtener_catalogo
+-- Regresa (id, nombre) de un catálogo para llenar los <select>.
+-- El cursor se llama cursor_<nombre> para poder abrir varios a la vez.
+-- Ejemplo: BEGIN; CALL sp_obtener_catalogo('tipos_sangre', NULL); FETCH ALL FROM cursor_tipos_sangre; COMMIT;
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_obtener_catalogo(
+    IN p_nombre VARCHAR(30),
+    OUT p_catalogo REFCURSOR
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    p_catalogo := 'cursor_' || p_nombre;
+
+    IF p_nombre = 'tipos_sangre' THEN
+        OPEN p_catalogo FOR SELECT id_tipo_sanguineo, nombre FROM cat_tipos_sanguineo ORDER BY 1;
+    ELSIF p_nombre = 'sexos' THEN
+        OPEN p_catalogo FOR SELECT id_sexo, nombre FROM cat_sexo ORDER BY 1;
+    ELSIF p_nombre = 'estados_donante' THEN
+        OPEN p_catalogo FOR SELECT id_estado_donante, nombre FROM cat_estados_donante ORDER BY 1;
+    ELSIF p_nombre = 'estados_personal' THEN
+        OPEN p_catalogo FOR SELECT id_estado_personal, nombre FROM cat_estados_personal ORDER BY 1;
+    ELSIF p_nombre = 'estados_solicitud' THEN
+        OPEN p_catalogo FOR SELECT id_estado_solicitud, nombre FROM cat_estados_solicitud ORDER BY 1;
+    ELSIF p_nombre = 'estados_donacion' THEN
+        OPEN p_catalogo FOR SELECT id_estado_donacion, nombre FROM cat_estados_donacion ORDER BY 1;
+    ELSIF p_nombre = 'estados_recurso' THEN
+        OPEN p_catalogo FOR SELECT id_estado_recurso, nombre FROM cat_estados_recurso ORDER BY 1;
+    ELSIF p_nombre = 'estados_traslado' THEN
+        OPEN p_catalogo FOR SELECT id_estado_traslado, nombre FROM cat_estados_traslado ORDER BY 1;
+    ELSIF p_nombre = 'cargos' THEN
+        OPEN p_catalogo FOR SELECT id_cargo, nombre FROM cat_cargos ORDER BY 2;
+    ELSIF p_nombre = 'roles' THEN
+        OPEN p_catalogo FOR SELECT id_rol, nombre FROM cat_roles ORDER BY 1;
+    ELSIF p_nombre = 'instituciones' THEN
+        OPEN p_catalogo FOR SELECT id_institucion, nombre FROM instituciones ORDER BY 2;
+    ELSIF p_nombre = 'instituciones_activas' THEN
+        OPEN p_catalogo FOR SELECT id_institucion, nombre FROM instituciones WHERE id_estado_institucion = 1 ORDER BY 2;
+    ELSIF p_nombre = 'componentes' THEN
+        OPEN p_catalogo FOR SELECT id_componente, nombre FROM cat_componentes_sangre ORDER BY 1;
+    ELSIF p_nombre = 'urgencias' THEN
+        OPEN p_catalogo FOR SELECT id_urgencia, nombre FROM cat_urgencias ORDER BY peso DESC;
+    ELSIF p_nombre = 'tipos_organo' THEN
+        OPEN p_catalogo FOR SELECT id_tipo_organo, nombre FROM cat_organos ORDER BY 1;
+    ELSIF p_nombre = 'lados' THEN
+        OPEN p_catalogo FOR SELECT id_lado_organo, nombre FROM cat_lados_organo ORDER BY 1;
+    ELSIF p_nombre = 'tipos_evaluacion' THEN
+        OPEN p_catalogo FOR SELECT id_tipo_evaluacion, nombre FROM cat_tipos_evaluacion ORDER BY 1;
+    ELSIF p_nombre = 'resultados_evaluacion' THEN
+        OPEN p_catalogo FOR SELECT id_resultado_evaluacion, nombre FROM cat_resultados_evaluacion ORDER BY 1;
+    ELSIF p_nombre = 'causas_descarte' THEN
+        OPEN p_catalogo FOR SELECT id_causa_descarte, nombre FROM cat_causas_descarte ORDER BY 1;
+    ELSIF p_nombre = 'medios_transporte' THEN
+        OPEN p_catalogo FOR SELECT id_medio_transporte, nombre FROM cat_medios_transporte ORDER BY 1;
+    ELSIF p_nombre = 'resultados_recepcion' THEN
+        OPEN p_catalogo FOR SELECT id_resultado_recepcion, nombre FROM cat_resultados_recepcion ORDER BY 1;
+    ELSIF p_nombre = 'resultados_transfusion' THEN
+        OPEN p_catalogo FOR SELECT id_resultado_transfusion, nombre FROM cat_resultados_transfusion ORDER BY 1;
+    ELSIF p_nombre = 'receptores' THEN
+        OPEN p_catalogo FOR
+            SELECT r.id_receptor, p.nombres || ' ' || p.apellidos || ' (' || ts.nombre || ')'
+            FROM receptores r
+            JOIN personas p ON p.id_persona = r.id_persona
+            JOIN cat_tipos_sanguineo ts ON ts.id_tipo_sanguineo = r.id_tipo_sanguineo
+            WHERE r.id_estado_receptor <> 2
+            ORDER BY 2;
+    ELSIF p_nombre = 'donantes_activos' THEN
+        OPEN p_catalogo FOR
+            SELECT d.id_donante, d.id_donante || ' - ' || p.nombres || ' ' || p.apellidos || ' (' || ts.nombre || ')'
+            FROM donantes d
+            JOIN personas p ON p.id_persona = d.id_persona
+            JOIN cat_tipos_sanguineo ts ON ts.id_tipo_sanguineo = d.id_tipo_sanguineo
+            WHERE d.id_estado_donante = 1
+            ORDER BY p.nombres, p.apellidos;
+    ELSIF p_nombre = 'donantes_organo' THEN
+        OPEN p_catalogo FOR
+            SELECT d.id_donante, d.id_donante || ' - ' || p.nombres || ' ' || p.apellidos || ' (' || ts.nombre || ')'
+            FROM donantes d
+            JOIN personas p ON p.id_persona = d.id_persona
+            JOIN cat_tipos_sanguineo ts ON ts.id_tipo_sanguineo = d.id_tipo_sanguineo
+            WHERE d.id_estado_donante <> 2
+            ORDER BY p.nombres, p.apellidos;
+    ELSE
+        RAISE EXCEPTION 'No existe el catálogo %', p_nombre;
+    END IF;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SP18. sp_obtener_inicio
+-- Datos de la pantalla de inicio (3 cursores):
+--   cursor_proximos: vista_inventario_proximo_a_caducar
+--   cursor_minimos:  CROSS JOIN banco x componente bajo su mínimo (consulta 5)
+--   cursor_activas:  vista_hospitales_solicitudes_activas (toda la red o una institución)
+-- Ejemplo: BEGIN; CALL sp_obtener_inicio(2, FALSE, NULL, NULL, NULL); FETCH ALL FROM cursor_activas; COMMIT;
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_obtener_inicio(
+    IN p_id_institucion INTEGER,
+    IN p_ve_todo BOOLEAN,
+    OUT p_proximos REFCURSOR,
+    OUT p_minimos REFCURSOR,
+    OUT p_activas REFCURSOR
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    p_proximos := 'cursor_proximos';
+    p_minimos := 'cursor_minimos';
+    p_activas := 'cursor_activas';
+
+    OPEN p_proximos FOR
+        SELECT folio, institucion, tipo_sangre, componente, fecha_caducidad, dias_restantes, cantidad
+        FROM vista_inventario_proximo_a_caducar;
+
+    OPEN p_minimos FOR
+        SELECT * FROM (
+            SELECT b.nombre AS banco_sangre, c.nombre AS componente,
+                   count(r.id_recurso) AS disponibles, ui.minimo
+            FROM instituciones b
+            CROSS JOIN cat_componentes_sangre c
+            LEFT JOIN unidades_componentes_sanguineos u ON u.id_componente = c.id_componente
+            LEFT JOIN recursos r ON r.id_recurso = u.id_recurso
+                                AND r.id_institucion = b.id_institucion
+                                AND r.id_estado_recurso = 1
+            LEFT JOIN umbrales_inventario ui ON ui.id_institucion = b.id_institucion
+                                            AND ui.id_componente = c.id_componente AND ui.activo
+            WHERE b.id_tipo_institucion = 1
+            GROUP BY b.nombre, c.nombre, ui.minimo
+        ) x
+        WHERE disponibles < minimo
+        ORDER BY banco_sangre, componente;
+
+    OPEN p_activas FOR
+        SELECT id_solicitud, hospital, urgencia, tipo_sangre, cantidad, estado_solicitud,
+               fecha_limite, fecha_solicitud, motivo
+        FROM vista_hospitales_solicitudes_activas
+        WHERE p_ve_todo OR id_hospital = p_id_institucion;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SP19. sp_obtener_donantes
+-- Lista de donantes con búsqueda (nombre o id) y filtros (NULL = todos).
+-- Columnas: id, nombre, tipo, edad, estado, correo, última donación
+-- Ejemplo: BEGIN; CALL sp_obtener_donantes('ana', NULL, 1, NULL); FETCH ALL FROM cursor_donantes; COMMIT;
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_obtener_donantes(
+    IN p_buscar VARCHAR(100),
+    IN p_id_tipo_sanguineo INTEGER,
+    IN p_id_estado INTEGER,
+    OUT p_donantes REFCURSOR
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    p_donantes := 'cursor_donantes';
+
+    OPEN p_donantes FOR
+        SELECT d.id_donante,
+               p.nombres || ' ' || p.apellidos,
+               ts.nombre,
+               fn_calcular_edad(p.fecha_nacimiento),
+               ed.nombre,
+               p.correo,
+               (SELECT max(dn.fecha_hora_inicio) FROM donaciones dn WHERE dn.id_donante = d.id_donante)
+        FROM donantes d
+        JOIN personas p ON p.id_persona = d.id_persona
+        JOIN cat_tipos_sanguineo ts ON ts.id_tipo_sanguineo = d.id_tipo_sanguineo
+        JOIN cat_estados_donante ed ON ed.id_estado_donante = d.id_estado_donante
+        WHERE (p_buscar IS NULL OR p.nombres || ' ' || p.apellidos ILIKE '%' || p_buscar || '%'
+               OR d.id_donante::TEXT = p_buscar)
+          AND (p_id_tipo_sanguineo IS NULL OR d.id_tipo_sanguineo = p_id_tipo_sanguineo)
+          AND (p_id_estado IS NULL OR d.id_estado_donante = p_id_estado)
+        ORDER BY d.id_donante DESC;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SP20. sp_obtener_donante
+-- Un donante con sus teléfonos, historial de donaciones y órganos donados.
+-- cursor_donante: id, id_persona, nombres, apellidos, fecha_nac, correo, edad,
+--                 sexo, tipo, estado, id_sexo, id_tipo, id_estado, teléfono, n_donaciones
+-- Ejemplo: BEGIN; CALL sp_obtener_donante(1, NULL, NULL, NULL, NULL); FETCH ALL FROM cursor_donante; COMMIT;
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_obtener_donante(
+    IN p_id_donante INTEGER,
+    OUT p_donante REFCURSOR,
+    OUT p_telefonos REFCURSOR,
+    OUT p_historial REFCURSOR,
+    OUT p_organos REFCURSOR
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_id_persona INTEGER;
+BEGIN
+    p_donante := 'cursor_donante';
+    p_telefonos := 'cursor_telefonos';
+    p_historial := 'cursor_historial';
+    p_organos := 'cursor_organos';
+
+    SELECT id_persona INTO v_id_persona FROM donantes WHERE id_donante = p_id_donante;
+
+    OPEN p_donante FOR
+        SELECT d.id_donante, d.id_persona, p.nombres, p.apellidos, p.fecha_nacimiento, p.correo,
+               fn_calcular_edad(p.fecha_nacimiento), sx.nombre, ts.nombre, ed.nombre,
+               p.id_sexo, d.id_tipo_sanguineo, d.id_estado_donante,
+               (SELECT t.telefono FROM telefonos t WHERE t.id_persona = d.id_persona ORDER BY t.id_telefono LIMIT 1),
+               (SELECT count(*) FROM donaciones dn WHERE dn.id_donante = d.id_donante)
+        FROM donantes d
+        JOIN personas p ON p.id_persona = d.id_persona
+        JOIN cat_sexo sx ON sx.id_sexo = p.id_sexo
+        JOIN cat_tipos_sanguineo ts ON ts.id_tipo_sanguineo = d.id_tipo_sanguineo
+        JOIN cat_estados_donante ed ON ed.id_estado_donante = d.id_estado_donante
+        WHERE d.id_donante = p_id_donante;
+
+    OPEN p_telefonos FOR
+        SELECT t.telefono, tt.nombre
+        FROM telefonos t
+        JOIN cat_tipos_telefono tt ON tt.id_tipo_telefono = t.id_tipo_telefono
+        WHERE t.id_persona = v_id_persona
+        ORDER BY t.id_telefono;
+
+    OPEN p_historial FOR
+        SELECT dn.id_donacion, dn.fecha_hora_inicio, td.nombre, i.nombre, dn.volumen_ml, ed.nombre,
+               (SELECT count(*) FROM unidades_componentes_sanguineos u WHERE u.id_donacion = dn.id_donacion)
+        FROM donaciones dn
+        JOIN cat_tipos_donacion td ON td.id_tipo_donacion = dn.id_tipo_donacion
+        JOIN instituciones i ON i.id_institucion = dn.id_institucion
+        JOIN cat_estados_donacion ed ON ed.id_estado_donacion = dn.id_estado_donacion
+        WHERE dn.id_donante = p_id_donante
+        ORDER BY dn.fecha_hora_inicio DESC;
+
+    OPEN p_organos FOR
+        SELECT r.folio, co.nombre, op.fecha_hora, er.nombre
+        FROM organos o
+        JOIN operaciones op ON op.id_operacion = o.id_extraccion
+        JOIN recursos r ON r.id_recurso = o.id_recurso
+        JOIN cat_organos co ON co.id_tipo_organo = o.id_tipo_organo
+        JOIN cat_estados_recurso er ON er.id_estado_recurso = r.id_estado_recurso
+        WHERE op.id_persona = v_id_persona
+        ORDER BY op.fecha_hora DESC;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SP21. sp_actualizar_donante
+-- Modifica los datos de un donante (persona, teléfono principal, tipo, estado).
+-- Reglas: permiso 'Registrar donaciones'; datos válidos (fn_validar_persona);
+-- edad 18-65 solo si cambia la fecha; el tipo sanguíneo no cambia si ya
+-- donó; un donante Fallecido no cambia de estado; correo sin repetir.
+-- Ejemplo: CALL sp_actualizar_donante(1, 'José', 'Silva Castillo', '1990-01-01', 2, NULL, '8110000000', 1, 1, 5);
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_actualizar_donante(
+    IN p_id_donante INTEGER,
+    IN p_nombres VARCHAR(100),
+    IN p_apellidos VARCHAR(100),
+    IN p_fecha_nacimiento DATE,
+    IN p_id_sexo INTEGER,
+    IN p_correo VARCHAR(150),
+    IN p_telefono VARCHAR(15),
+    IN p_id_tipo_sanguineo INTEGER,
+    IN p_id_estado INTEGER,
+    IN p_id_personal INTEGER
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_id_persona INTEGER;
+    v_tipo SMALLINT;
+    v_estado SMALLINT;
+    v_fecha DATE;
+    v_telefono VARCHAR(15);
+    v_donaciones INTEGER;
+BEGIN
+    IF NOT fn_tiene_permiso(p_id_personal, 'Registrar donaciones') THEN
+        RAISE EXCEPTION 'No tienes permiso para modificar donantes';
+    END IF;
+
+    SELECT d.id_persona, d.id_tipo_sanguineo, d.id_estado_donante, p.fecha_nacimiento
+    INTO v_id_persona, v_tipo, v_estado, v_fecha
+    FROM donantes d JOIN personas p ON p.id_persona = d.id_persona
+    WHERE d.id_donante = p_id_donante;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'El donante % no existe', p_id_donante;
+    END IF;
+
+    IF p_fecha_nacimiento IS DISTINCT FROM v_fecha THEN
+        PERFORM fn_validar_persona(p_nombres, p_apellidos, p_fecha_nacimiento, p_correo, p_telefono, 18, 65);
+    ELSE
+        PERFORM fn_validar_persona(p_nombres, p_apellidos, p_fecha_nacimiento, p_correo, p_telefono, NULL, NULL);
+    END IF;
+
+    SELECT count(*) INTO v_donaciones FROM donaciones WHERE id_donante = p_id_donante;
+    IF p_id_tipo_sanguineo <> v_tipo AND v_donaciones > 0 THEN
+        RAISE EXCEPTION 'No se puede cambiar el tipo sanguíneo: el donante ya tiene donaciones';
+    END IF;
+
+    IF v_estado = 4 AND p_id_estado <> 4 THEN
+        RAISE EXCEPTION 'Un donante registrado como Fallecido no puede cambiar de estado';
+    END IF;
+
+    BEGIN
+        UPDATE personas
+        SET nombres = trim(p_nombres), apellidos = trim(p_apellidos), fecha_nacimiento = p_fecha_nacimiento,
+            id_sexo = p_id_sexo, correo = lower(p_correo)
+        WHERE id_persona = v_id_persona;
+
+        -- teléfono principal = el primero registrado
+        SELECT telefono INTO v_telefono FROM telefonos WHERE id_persona = v_id_persona ORDER BY id_telefono LIMIT 1;
+        IF v_telefono IS NOT NULL AND p_telefono IS NULL THEN
+            DELETE FROM telefonos WHERE id_persona = v_id_persona AND telefono = v_telefono;
+        ELSIF v_telefono IS NOT NULL AND p_telefono <> v_telefono THEN
+            UPDATE telefonos SET telefono = p_telefono WHERE id_persona = v_id_persona AND telefono = v_telefono;
+        ELSIF v_telefono IS NULL AND p_telefono IS NOT NULL THEN
+            INSERT INTO telefonos (id_persona, telefono, id_tipo_telefono) VALUES (v_id_persona, p_telefono, 1);
+        END IF;
+
+        UPDATE donantes SET id_tipo_sanguineo = p_id_tipo_sanguineo, id_estado_donante = p_id_estado
+        WHERE id_donante = p_id_donante;
+    EXCEPTION
+        WHEN unique_violation THEN
+            RAISE EXCEPTION 'Ya existe una persona registrada con ese correo o teléfono';
+        WHEN foreign_key_violation THEN
+            RAISE EXCEPTION 'El sexo, tipo sanguíneo o estado no existen en el catálogo';
+    END;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SP22. sp_eliminar_donante
+-- Elimina un donante. Si tiene historial (donaciones, órganos) la llave
+-- foránea no deja borrarlo y se hace baja lógica (estado Inactivo).
+-- p_resultado: 'Eliminado', 'Baja lógica' o 'Ya estaba Inactivo'
+-- Ejemplo: CALL sp_eliminar_donante(1, 5, NULL);   -> 'Baja lógica' (tiene donaciones)
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_eliminar_donante(
+    IN p_id_donante INTEGER,
+    IN p_id_personal INTEGER,
+    OUT p_resultado VARCHAR(30)
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_id_persona INTEGER;
+    v_estado SMALLINT;
+BEGIN
+    IF NOT fn_tiene_permiso(p_id_personal, 'Registrar donaciones') THEN
+        RAISE EXCEPTION 'No tienes permiso para eliminar donantes';
+    END IF;
+
+    SELECT id_persona, id_estado_donante INTO v_id_persona, v_estado
+    FROM donantes WHERE id_donante = p_id_donante;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'El donante % no existe', p_id_donante;
+    END IF;
+
+    BEGIN
+        DELETE FROM donantes WHERE id_donante = p_id_donante;
+
+        -- la persona solo se borra si no es también personal o receptor
+        BEGIN
+            DELETE FROM telefonos WHERE id_persona = v_id_persona;
+            DELETE FROM personas WHERE id_persona = v_id_persona;
+        EXCEPTION
+            WHEN foreign_key_violation THEN NULL;
+        END;
+
+        p_resultado := 'Eliminado';
+    EXCEPTION
+        WHEN foreign_key_violation THEN
+            IF v_estado = 2 THEN
+                p_resultado := 'Ya estaba Inactivo';
+            ELSE
+                UPDATE donantes SET id_estado_donante = 2 WHERE id_donante = p_id_donante;
+                p_resultado := 'Baja lógica';
+            END IF;
+    END;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SP23. sp_obtener_receptores
+-- Columnas: id, nombre, tipo, edad, estado, correo, número de solicitudes
+-- Ejemplo: BEGIN; CALL sp_obtener_receptores(NULL, NULL); FETCH ALL FROM cursor_receptores; COMMIT;
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_obtener_receptores(
+    IN p_buscar VARCHAR(100),
+    OUT p_receptores REFCURSOR
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    p_receptores := 'cursor_receptores';
+
+    OPEN p_receptores FOR
+        SELECT r.id_receptor,
+               p.nombres || ' ' || p.apellidos,
+               ts.nombre,
+               fn_calcular_edad(p.fecha_nacimiento),
+               er.nombre,
+               p.correo,
+               (SELECT count(*) FROM solicitudes s WHERE s.id_receptor = r.id_receptor)
+        FROM receptores r
+        JOIN personas p ON p.id_persona = r.id_persona
+        JOIN cat_tipos_sanguineo ts ON ts.id_tipo_sanguineo = r.id_tipo_sanguineo
+        JOIN cat_estados_receptor er ON er.id_estado_receptor = r.id_estado_receptor
+        WHERE p_buscar IS NULL OR p.nombres || ' ' || p.apellidos ILIKE '%' || p_buscar || '%'
+        ORDER BY r.id_receptor DESC;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SP24. sp_registrar_receptor
+-- Registra persona + teléfono + receptor (estado Activo).
+-- Reglas: permiso 'Registrar solicitudes', datos válidos, correo sin repetir.
+-- Ejemplo: CALL sp_registrar_receptor('Rosa', 'Peña', '2010-01-01', 1, NULL, NULL, 7, 6, NULL);
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_registrar_receptor(
+    IN p_nombres VARCHAR(100),
+    IN p_apellidos VARCHAR(100),
+    IN p_fecha_nacimiento DATE,
+    IN p_id_sexo INTEGER,
+    IN p_correo VARCHAR(150),
+    IN p_telefono VARCHAR(15),
+    IN p_id_tipo_sanguineo INTEGER,
+    IN p_id_personal INTEGER,
+    OUT p_id_receptor INTEGER
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_id_persona INTEGER;
+BEGIN
+    IF NOT fn_tiene_permiso(p_id_personal, 'Registrar solicitudes') THEN
+        RAISE EXCEPTION 'No tienes permiso para registrar receptores';
+    END IF;
+
+    PERFORM fn_validar_persona(p_nombres, p_apellidos, p_fecha_nacimiento, p_correo, p_telefono, NULL, NULL);
+
+    BEGIN
+        INSERT INTO personas (id_sexo, nombres, apellidos, fecha_nacimiento, correo)
+        VALUES (p_id_sexo, trim(p_nombres), trim(p_apellidos), p_fecha_nacimiento, lower(p_correo))
+        RETURNING id_persona INTO v_id_persona;
+
+        IF p_telefono IS NOT NULL THEN
+            INSERT INTO telefonos (id_persona, telefono, id_tipo_telefono) VALUES (v_id_persona, p_telefono, 1);
+        END IF;
+
+        INSERT INTO receptores (id_persona, id_tipo_sanguineo, id_estado_receptor)
+        VALUES (v_id_persona, p_id_tipo_sanguineo, 1)
+        RETURNING id_receptor INTO p_id_receptor;
+    EXCEPTION
+        WHEN unique_violation THEN
+            RAISE EXCEPTION 'Ya existe una persona registrada con ese correo';
+        WHEN foreign_key_violation THEN
+            RAISE EXCEPTION 'El sexo o el tipo sanguíneo no existen en el catálogo';
+    END;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SP25. sp_obtener_donaciones
+-- Donaciones de sangre (NULL = todos los estados).
+-- Columnas: id, id_donante, donante, tipo, institución, fecha, ml, estado
+-- Ejemplo: BEGIN; CALL sp_obtener_donaciones(3, NULL); FETCH ALL FROM cursor_donaciones; COMMIT;
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_obtener_donaciones(
+    IN p_id_estado INTEGER,
+    OUT p_donaciones REFCURSOR
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    p_donaciones := 'cursor_donaciones';
+
+    OPEN p_donaciones FOR
+        SELECT dn.id_donacion, dn.id_donante, p.nombres || ' ' || p.apellidos, ts.nombre,
+               i.nombre, dn.fecha_hora_inicio, dn.volumen_ml, ed.nombre
+        FROM donaciones dn
+        JOIN donantes d ON d.id_donante = dn.id_donante
+        JOIN personas p ON p.id_persona = d.id_persona
+        JOIN cat_tipos_sanguineo ts ON ts.id_tipo_sanguineo = d.id_tipo_sanguineo
+        JOIN instituciones i ON i.id_institucion = dn.id_institucion
+        JOIN cat_estados_donacion ed ON ed.id_estado_donacion = dn.id_estado_donacion
+        WHERE dn.id_tipo_donacion = 1
+          AND (p_id_estado IS NULL OR dn.id_estado_donacion = p_id_estado)
+        ORDER BY dn.id_donacion DESC;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SP26. sp_obtener_inventario
+-- cursor_sangre (vista_inventario_sangre): id, folio, institución, tipo,
+--   componente, estado, extracción, caducidad, ml, días restantes.
+--   Filtros por nombre; p_estado NULL = en circulación (Disponible, Reservado, En traslado).
+-- cursor_organos_inv: órganos en circulación.
+-- Ejemplo: BEGIN; CALL sp_obtener_inventario(NULL, 'O+', NULL, NULL, NULL, NULL); FETCH ALL FROM cursor_sangre; COMMIT;
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_obtener_inventario(
+    IN p_id_institucion INTEGER,
+    IN p_tipo VARCHAR(5),
+    IN p_componente VARCHAR(80),
+    IN p_estado VARCHAR(30),
+    OUT p_sangre REFCURSOR,
+    OUT p_organos REFCURSOR
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    p_sangre := 'cursor_sangre';
+    p_organos := 'cursor_organos_inv';
+
+    OPEN p_sangre FOR
+        SELECT v.id_recurso, v.folio, v.banco_sangre, v.tipo_sangre, v.componente, v.estado_recurso,
+               v.fecha_extraccion, v.fecha_caducidad, v.cantidad, fn_dias_restantes(v.id_recurso)
+        FROM vista_inventario_sangre v
+        WHERE (p_id_institucion IS NULL OR v.id_banco_sangre = p_id_institucion)
+          AND (p_tipo IS NULL OR v.tipo_sangre = p_tipo)
+          AND (p_componente IS NULL OR v.componente = p_componente)
+          AND ((p_estado IS NULL AND v.estado_recurso IN ('Disponible', 'Reservado', 'En traslado'))
+               OR v.estado_recurso = p_estado)
+        ORDER BY v.fecha_caducidad;
+
+    OPEN p_organos FOR
+        SELECT r.id_recurso, r.folio, co.nombre, ts.nombre, i.nombre, er.nombre, vo.nombre,
+               o.fecha_hora_caducidad, fn_dias_restantes(r.id_recurso)
+        FROM organos o
+        JOIN recursos r ON r.id_recurso = o.id_recurso
+        JOIN cat_organos co ON co.id_tipo_organo = o.id_tipo_organo
+        JOIN cat_tipos_sanguineo ts ON ts.id_tipo_sanguineo = r.id_tipo_sanguineo
+        JOIN instituciones i ON i.id_institucion = r.id_institucion
+        JOIN cat_estados_recurso er ON er.id_estado_recurso = r.id_estado_recurso
+        JOIN cat_viabilidad_organo vo ON vo.id_viabilidad_organo = o.id_viabilidad_organo
+        WHERE r.id_estado_recurso IN (1, 2, 3)
+        ORDER BY o.fecha_hora_caducidad;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SP27. sp_obtener_organos
+-- Órganos en circulación con su última evaluación.
+-- Columnas: id, folio, órgano, tipo, institución, estado, viabilidad,
+--           límite, tamaño, última evaluación
+-- Ejemplo: BEGIN; CALL sp_obtener_organos(NULL); FETCH ALL FROM cursor_organos; COMMIT;
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_obtener_organos(
+    OUT p_organos REFCURSOR
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    p_organos := 'cursor_organos';
+
+    OPEN p_organos FOR
+        SELECT r.id_recurso, r.folio, co.nombre, ts.nombre, i.nombre, er.nombre, vo.nombre,
+               o.fecha_hora_caducidad, o.tamano_cm,
+               (SELECT re.nombre || ' (' || to_char(ev.fecha_hora, 'DD/MM/YYYY') || ')'
+                FROM evaluaciones_organo ev
+                JOIN cat_resultados_evaluacion re ON re.id_resultado_evaluacion = ev.id_resultado_evaluacion
+                WHERE ev.id_recurso = r.id_recurso
+                ORDER BY ev.fecha_hora DESC LIMIT 1)
+        FROM organos o
+        JOIN recursos r ON r.id_recurso = o.id_recurso
+        JOIN cat_organos co ON co.id_tipo_organo = o.id_tipo_organo
+        JOIN cat_tipos_sanguineo ts ON ts.id_tipo_sanguineo = r.id_tipo_sanguineo
+        JOIN instituciones i ON i.id_institucion = r.id_institucion
+        JOIN cat_estados_recurso er ON er.id_estado_recurso = r.id_estado_recurso
+        JOIN cat_viabilidad_organo vo ON vo.id_viabilidad_organo = o.id_viabilidad_organo
+        WHERE r.id_estado_recurso IN (1, 2, 3)
+        ORDER BY o.fecha_hora_caducidad;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SP28. sp_evaluar_organo
+-- Registra la evaluación de un órgano. Resultado 4 (No apto) lo deja
+-- No viable; cualquier otro, Viable (y entonces entra al matching).
+-- Reglas: permiso 'Registrar evaluaciones de órganos'; solo órganos
+-- Disponibles o Reservados y dentro de su tiempo de viabilidad.
+-- Ejemplo: CALL sp_evaluar_organo(150, 6, 1, 1, 'Buena perfusión', NULL);  -> 'Viable'
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_evaluar_organo(
+    IN p_id_recurso INTEGER,
+    IN p_id_personal INTEGER,
+    IN p_id_tipo_evaluacion INTEGER,
+    IN p_id_resultado INTEGER,
+    IN p_observaciones TEXT,
+    OUT p_viabilidad VARCHAR(20)
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_estado SMALLINT;
+BEGIN
+    IF NOT fn_tiene_permiso(p_id_personal, 'Registrar evaluaciones de órganos') THEN
+        RAISE EXCEPTION 'No tienes permiso para evaluar órganos';
+    END IF;
+
+    SELECT r.id_estado_recurso INTO v_estado
+    FROM organos o JOIN recursos r ON r.id_recurso = o.id_recurso
+    WHERE o.id_recurso = p_id_recurso;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'El órgano % no existe', p_id_recurso;
+    END IF;
+
+    IF v_estado NOT IN (1, 2) THEN
+        RAISE EXCEPTION 'Solo se evalúan órganos Disponibles o Reservados';
+    END IF;
+
+    IF fn_dias_restantes(p_id_recurso) <= 0 THEN
+        RAISE EXCEPTION 'El órgano ya perdió su tiempo de viabilidad';
+    END IF;
+
+    INSERT INTO evaluaciones_organo (id_recurso, id_personal, fecha_hora, id_tipo_evaluacion,
+                                     id_resultado_evaluacion, observaciones)
+    VALUES (p_id_recurso, p_id_personal, now(), p_id_tipo_evaluacion, p_id_resultado, p_observaciones);
+
+    IF p_id_resultado = 4 THEN
+        UPDATE organos SET id_viabilidad_organo = 3 WHERE id_recurso = p_id_recurso;   -- No viable
+        p_viabilidad := 'No viable';
+    ELSE
+        UPDATE organos SET id_viabilidad_organo = 1 WHERE id_recurso = p_id_recurso;   -- Viable
+        p_viabilidad := 'Viable';
+    END IF;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SP29. sp_obtener_solicitudes
+-- Líneas de solicitud con filtros (NULL = todos). p_ve_todo = coordinador
+-- regional (toda la red); si no, solo las de p_id_institucion.
+-- Columnas: folio, línea, hospital, receptor, pide, cantidad, urgencia,
+--           estado, fecha, fecha límite, asignadas
+-- Ejemplo: BEGIN; CALL sp_obtener_solicitudes(FALSE, 2, 1, NULL, NULL, NULL, NULL); FETCH ALL FROM cursor_solicitudes; COMMIT;
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_obtener_solicitudes(
+    IN p_ve_todo BOOLEAN,
+    IN p_id_institucion INTEGER,
+    IN p_id_estado INTEGER,
+    IN p_id_urgencia INTEGER,
+    IN p_id_tipo_recurso INTEGER,
+    IN p_buscar VARCHAR(100),
+    OUT p_solicitudes REFCURSOR
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    p_solicitudes := 'cursor_solicitudes';
+
+    OPEN p_solicitudes FOR
+        SELECT s.id_solicitud, sd.id_solicitud_detalle, i.nombre, p.nombres || ' ' || p.apellidos,
+               COALESCE(cs.nombre || ' ' || ts.nombre, co.nombre), sd.cantidad,
+               u.nombre, es.nombre, s.fecha_hora_solicitud, s.fecha_limite,
+               (SELECT count(*) FROM asignaciones a JOIN matching m ON m.id_matching = a.id_matching
+                WHERE m.id_solicitud_detalle = sd.id_solicitud_detalle AND a.id_estado_asignacion IN (1, 2))
+        FROM solicitudes s
+        JOIN solicitudes_detalle sd ON sd.id_solicitud = s.id_solicitud
+        LEFT JOIN requisitos_sangre rs ON rs.id_solicitud_detalle = sd.id_solicitud_detalle
+        LEFT JOIN cat_componentes_sangre cs ON cs.id_componente = rs.id_componente
+        LEFT JOIN cat_tipos_sanguineo ts ON ts.id_tipo_sanguineo = rs.id_tipo_sanguineo
+        LEFT JOIN requisitos_organo ro ON ro.id_solicitud_detalle = sd.id_solicitud_detalle
+        LEFT JOIN cat_organos co ON co.id_tipo_organo = ro.id_tipo_organo
+        JOIN instituciones i ON i.id_institucion = s.id_hospital
+        JOIN receptores r ON r.id_receptor = s.id_receptor
+        JOIN personas p ON p.id_persona = r.id_persona
+        JOIN cat_urgencias u ON u.id_urgencia = s.id_urgencia
+        JOIN cat_estados_solicitud es ON es.id_estado_solicitud = s.id_estado_solicitud
+        WHERE (p_ve_todo OR s.id_hospital = p_id_institucion)
+          AND (p_id_estado IS NULL OR s.id_estado_solicitud = p_id_estado)
+          AND (p_id_urgencia IS NULL OR s.id_urgencia = p_id_urgencia)
+          AND (p_id_tipo_recurso IS NULL OR sd.id_tipo_recurso = p_id_tipo_recurso)
+          AND (p_buscar IS NULL OR p.nombres || ' ' || p.apellidos ILIKE '%' || p_buscar || '%'
+               OR s.id_solicitud::TEXT = p_buscar)
+        ORDER BY (s.id_estado_solicitud IN (1, 2)) DESC, u.peso DESC, s.fecha_hora_solicitud DESC;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SP30. sp_obtener_solicitud
+-- Una solicitud con lo que pide y su historial de matching (vista_matching).
+-- Revisa que quien consulta sea de esa institución o coordinador regional.
+-- cursor_solicitud: id, id_hospital, id_urgencia, id_estado, fecha, fecha_límite,
+--   motivo, observaciones, hospital, receptor, tipo receptor, urgencia, estado, registró
+-- Ejemplo: BEGIN; CALL sp_obtener_solicitud(1, 2, NULL, NULL, NULL); FETCH ALL FROM cursor_solicitud; COMMIT;
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_obtener_solicitud(
+    IN p_id_solicitud INTEGER,
+    IN p_id_personal INTEGER,
+    OUT p_solicitud REFCURSOR,
+    OUT p_lineas REFCURSOR,
+    OUT p_historial REFCURSOR
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_id_hospital INTEGER;
+BEGIN
+    p_solicitud := 'cursor_solicitud';
+    p_lineas := 'cursor_lineas';
+    p_historial := 'cursor_historial_matching';
+
+    SELECT id_hospital INTO v_id_hospital FROM solicitudes WHERE id_solicitud = p_id_solicitud;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'La solicitud % no existe', p_id_solicitud;
+    END IF;
+
+    IF v_id_hospital <> (SELECT id_institucion FROM personal WHERE id_personal = p_id_personal)
+       AND NOT fn_tiene_permiso(p_id_personal, 'Consultar reportes regionales') THEN
+        RAISE EXCEPTION 'Solo puedes consultar las solicitudes de tu institución';
+    END IF;
+
+    OPEN p_solicitud FOR
+        SELECT s.id_solicitud, s.id_hospital, s.id_urgencia, s.id_estado_solicitud, s.fecha_hora_solicitud,
+               s.fecha_limite, s.motivo, s.observaciones, i.nombre,
+               p.nombres || ' ' || p.apellidos, ts.nombre, u.nombre, es.nombre,
+               pp.nombres || ' ' || pp.apellidos
+        FROM solicitudes s
+        JOIN instituciones i ON i.id_institucion = s.id_hospital
+        JOIN receptores r ON r.id_receptor = s.id_receptor
+        JOIN personas p ON p.id_persona = r.id_persona
+        JOIN cat_tipos_sanguineo ts ON ts.id_tipo_sanguineo = r.id_tipo_sanguineo
+        JOIN cat_urgencias u ON u.id_urgencia = s.id_urgencia
+        JOIN cat_estados_solicitud es ON es.id_estado_solicitud = s.id_estado_solicitud
+        JOIN personal pe ON pe.id_personal = s.id_personal
+        JOIN personas pp ON pp.id_persona = pe.id_persona
+        WHERE s.id_solicitud = p_id_solicitud;
+
+    OPEN p_lineas FOR
+        SELECT sd.id_solicitud_detalle, tr.nombre, sd.cantidad,
+               COALESCE(cs.nombre || ' ' || ts.nombre,
+                        co.nombre || COALESCE(' de ' || ro.tamano_minimo_cm || ' a ' || ro.tamano_maximo_cm || ' cm', '')),
+               (SELECT count(*) FROM asignaciones a JOIN matching m ON m.id_matching = a.id_matching
+                WHERE m.id_solicitud_detalle = sd.id_solicitud_detalle AND a.id_estado_asignacion IN (1, 2))
+        FROM solicitudes_detalle sd
+        JOIN cat_tipos_recurso tr ON tr.id_tipo_recurso = sd.id_tipo_recurso
+        LEFT JOIN requisitos_sangre rs ON rs.id_solicitud_detalle = sd.id_solicitud_detalle
+        LEFT JOIN cat_componentes_sangre cs ON cs.id_componente = rs.id_componente
+        LEFT JOIN cat_tipos_sanguineo ts ON ts.id_tipo_sanguineo = rs.id_tipo_sanguineo
+        LEFT JOIN requisitos_organo ro ON ro.id_solicitud_detalle = sd.id_solicitud_detalle
+        LEFT JOIN cat_organos co ON co.id_tipo_organo = ro.id_tipo_organo
+        WHERE sd.id_solicitud = p_id_solicitud
+        ORDER BY sd.id_solicitud_detalle;
+
+    OPEN p_historial FOR
+        SELECT id_matching, unidad_asignada, banco_sangre, resultado_compatibilidad, disponible,
+               explicacion, estado, fecha_hora_asignacion
+        FROM vista_matching
+        WHERE id_solicitud = p_id_solicitud
+        ORDER BY (estado IS NULL), fecha_hora_calculo DESC;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SP31. sp_actualizar_solicitud
+-- Modifica urgencia, fecha límite, motivo y observaciones.
+-- Reglas: permiso 'Registrar solicitudes'; solo de la propia institución
+-- (o coordinador regional); solo En proceso o Aprobada; la fecha límite
+-- debe ser futura; motivo obligatorio. Lo que se pide no cambia.
+-- Ejemplo: CALL sp_actualizar_solicitud(19, 6, 1, '2026-12-01 10:00', 'Cirugía adelantada', NULL);
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_actualizar_solicitud(
+    IN p_id_solicitud INTEGER,
+    IN p_id_personal INTEGER,
+    IN p_id_urgencia INTEGER,
+    IN p_fecha_limite TIMESTAMP,
+    IN p_motivo VARCHAR(255),
+    IN p_observaciones TEXT
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_estado SMALLINT;
+    v_id_hospital INTEGER;
+BEGIN
+    IF NOT fn_tiene_permiso(p_id_personal, 'Registrar solicitudes') THEN
+        RAISE EXCEPTION 'No tienes permiso para modificar solicitudes';
+    END IF;
+
+    SELECT id_estado_solicitud, id_hospital INTO v_estado, v_id_hospital
+    FROM solicitudes WHERE id_solicitud = p_id_solicitud;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'La solicitud % no existe', p_id_solicitud;
+    END IF;
+
+    IF v_id_hospital <> (SELECT id_institucion FROM personal WHERE id_personal = p_id_personal)
+       AND NOT fn_tiene_permiso(p_id_personal, 'Consultar reportes regionales') THEN
+        RAISE EXCEPTION 'Solo puedes modificar las solicitudes de tu institución';
+    END IF;
+
+    IF v_estado NOT IN (1, 2) THEN
+        RAISE EXCEPTION 'Solo se modifican solicitudes En proceso o Aprobadas';
+    END IF;
+
+    IF p_fecha_limite IS NULL OR p_fecha_limite <= now()::TIMESTAMP THEN
+        RAISE EXCEPTION 'La fecha límite debe ser posterior a este momento';
+    END IF;
+
+    IF p_motivo IS NULL OR trim(p_motivo) = '' THEN
+        RAISE EXCEPTION 'El motivo es obligatorio';
+    END IF;
+
+    UPDATE solicitudes
+    SET id_urgencia = p_id_urgencia,
+        fecha_limite = p_fecha_limite,
+        motivo = trim(p_motivo),
+        observaciones = p_observaciones
+    WHERE id_solicitud = p_id_solicitud;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SP32. sp_obtener_candidatos
+-- Candidatos disponibles de una línea, ordenados por puntaje y caducidad.
+-- Revisa que quien consulta sea de esa institución o coordinador regional.
+-- OUT p_id_solicitud = la solicitud de esa línea (para regresar a ella).
+-- Columnas: id_matching, folio, tipo, institución, caducidad, días, puntaje, explicación
+-- Ejemplo: BEGIN; CALL sp_obtener_candidatos(1, 2, NULL, NULL); FETCH ALL FROM cursor_candidatos; COMMIT;
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_obtener_candidatos(
+    IN p_id_solicitud_detalle INTEGER,
+    IN p_id_personal INTEGER,
+    OUT p_id_solicitud INTEGER,
+    OUT p_candidatos REFCURSOR
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_id_hospital INTEGER;
+BEGIN
+    p_candidatos := 'cursor_candidatos';
+
+    SELECT sd.id_solicitud, s.id_hospital INTO p_id_solicitud, v_id_hospital
+    FROM solicitudes_detalle sd JOIN solicitudes s ON s.id_solicitud = sd.id_solicitud
+    WHERE sd.id_solicitud_detalle = p_id_solicitud_detalle;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'La línea de solicitud % no existe', p_id_solicitud_detalle;
+    END IF;
+
+    IF v_id_hospital <> (SELECT id_institucion FROM personal WHERE id_personal = p_id_personal)
+       AND NOT fn_tiene_permiso(p_id_personal, 'Consultar reportes regionales') THEN
+        RAISE EXCEPTION 'Solo puedes consultar las solicitudes de tu institución';
+    END IF;
+
+    OPEN p_candidatos FOR
+        SELECT m.id_matching, r.folio, ts.nombre, i.nombre,
+               COALESCE(u.fecha_hora_caducidad, o.fecha_hora_caducidad),
+               fn_dias_restantes(r.id_recurso), fn_puntaje_matching(m.id_matching), m.explicacion
+        FROM matching m
+        JOIN recursos r ON r.id_recurso = m.id_recurso
+        LEFT JOIN unidades_componentes_sanguineos u ON u.id_recurso = r.id_recurso
+        LEFT JOIN organos o ON o.id_recurso = r.id_recurso
+        JOIN cat_tipos_sanguineo ts ON ts.id_tipo_sanguineo = r.id_tipo_sanguineo
+        JOIN instituciones i ON i.id_institucion = r.id_institucion
+        WHERE m.id_solicitud_detalle = p_id_solicitud_detalle
+          AND m.disponible = TRUE
+          AND m.id_resultado_compatibilidad = 1
+          AND r.id_estado_recurso = 1
+        ORDER BY 7 DESC, 5;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SP33. sp_obtener_asignaciones
+-- Asignaciones activas (toda la red o las de una institución).
+-- Columnas: asignación, solicitud, folio, tipo, dónde está, destino, estado,
+--   traslado en tránsito, receptor, id destino, tipo de recurso, recurso
+-- Ejemplo: BEGIN; CALL sp_obtener_asignaciones(TRUE, 1, NULL); FETCH ALL FROM cursor_asignaciones; COMMIT;
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_obtener_asignaciones(
+    IN p_ve_todo BOOLEAN,
+    IN p_id_institucion INTEGER,
+    OUT p_asignaciones REFCURSOR
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    p_asignaciones := 'cursor_asignaciones';
+
+    OPEN p_asignaciones FOR
+        SELECT a.id_asignacion, s.id_solicitud, r.folio, ts.nombre, io.nombre, ih.nombre, er.nombre,
+               (SELECT max(td.id_traslado) FROM traslado_detalle td
+                JOIN traslados t ON t.id_traslado = td.id_traslado
+                WHERE td.id_asignacion = a.id_asignacion AND t.id_estado_traslado = 2),
+               p.nombres || ' ' || p.apellidos, ih.id_institucion, r.id_tipo_recurso,
+               COALESCE(cs.nombre, co.nombre)
+        FROM asignaciones a
+        JOIN recursos r ON r.id_recurso = a.id_recurso
+        LEFT JOIN unidades_componentes_sanguineos u ON u.id_recurso = r.id_recurso
+        LEFT JOIN cat_componentes_sangre cs ON cs.id_componente = u.id_componente
+        LEFT JOIN organos o ON o.id_recurso = r.id_recurso
+        LEFT JOIN cat_organos co ON co.id_tipo_organo = o.id_tipo_organo
+        JOIN cat_tipos_sanguineo ts ON ts.id_tipo_sanguineo = r.id_tipo_sanguineo
+        JOIN cat_estados_recurso er ON er.id_estado_recurso = r.id_estado_recurso
+        JOIN instituciones io ON io.id_institucion = r.id_institucion
+        JOIN matching m ON m.id_matching = a.id_matching
+        JOIN solicitudes_detalle sd ON sd.id_solicitud_detalle = m.id_solicitud_detalle
+        JOIN solicitudes s ON s.id_solicitud = sd.id_solicitud
+        JOIN instituciones ih ON ih.id_institucion = s.id_hospital
+        JOIN receptores rc ON rc.id_receptor = s.id_receptor
+        JOIN personas p ON p.id_persona = rc.id_persona
+        WHERE a.id_estado_asignacion = 1
+          AND (p_ve_todo OR s.id_hospital = p_id_institucion)
+        ORDER BY a.id_asignacion DESC;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SP34. sp_obtener_traslados
+-- Traslados de vista_traslados (toda la red o donde participa la institución).
+-- Columnas: traslado, salida, llegada, estado, salió, llegada estimada, llegó, medio
+-- Ejemplo: BEGIN; CALL sp_obtener_traslados(TRUE, 1, 'Entregado', NULL); FETCH ALL FROM cursor_traslados; COMMIT;
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_obtener_traslados(
+    IN p_ve_todo BOOLEAN,
+    IN p_id_institucion INTEGER,
+    IN p_estado VARCHAR(30),
+    OUT p_traslados REFCURSOR
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    p_traslados := 'cursor_traslados';
+
+    OPEN p_traslados FOR
+        SELECT id_traslado, lugar_salida, lugar_llegada, estado, fecha_salida,
+               fecha_estimada_llegada, fecha_llegada, medio_transporte
+        FROM vista_traslados
+        WHERE (p_ve_todo OR p_id_institucion IN (id_institucion_origen, id_institucion_destino))
+          AND (p_estado IS NULL OR estado = p_estado)
+        ORDER BY (estado = 'En tránsito') DESC, fecha_salida DESC;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SP35. sp_obtener_reportes
+-- Reportes de la red (3 cursores):
+--   cursor_reporte_activas: vista_hospitales_solicitudes_activas
+--   cursor_aprovechamiento: consulta 11 (CTE)
+--   cursor_ranking:         consulta 12 (RANK y SUM OVER)
+-- Ejemplo: BEGIN; CALL sp_obtener_reportes(NULL, NULL, NULL); FETCH ALL FROM cursor_ranking; COMMIT;
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_obtener_reportes(
+    OUT p_activas REFCURSOR,
+    OUT p_aprovechamiento REFCURSOR,
+    OUT p_ranking REFCURSOR
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    p_activas := 'cursor_reporte_activas';
+    p_aprovechamiento := 'cursor_aprovechamiento';
+    p_ranking := 'cursor_ranking';
+
+    OPEN p_activas FOR
+        SELECT hospital, id_solicitud, urgencia, tipo_sangre, cantidad, estado_solicitud,
+               fecha_solicitud, fecha_limite, motivo
+        FROM vista_hospitales_solicitudes_activas;
+
+    OPEN p_aprovechamiento FOR
+        WITH unidades AS (
+            SELECT r.id_institucion, r.id_recurso, er.nombre AS estado
+            FROM recursos r
+            JOIN unidades_componentes_sanguineos u ON u.id_recurso = r.id_recurso
+            JOIN cat_estados_recurso er ON er.id_estado_recurso = r.id_estado_recurso
+        ),
+        resumen AS (
+            SELECT id_institucion, count(*) AS producidas,
+                   count(*) FILTER (WHERE estado = 'Utilizado') AS utilizadas,
+                   count(*) FILTER (WHERE estado = 'Descartado') AS descartadas,
+                   count(*) FILTER (WHERE estado IN ('Disponible', 'Reservado', 'En traslado')) AS en_inventario
+            FROM unidades GROUP BY id_institucion
+        )
+        SELECT i.nombre, r.producidas, r.utilizadas, r.descartadas, r.en_inventario,
+               round(100.0 * r.utilizadas / r.producidas, 1) AS pct_aprovechado,
+               round(100.0 * r.descartadas / r.producidas, 1)
+        FROM resumen r JOIN instituciones i ON i.id_institucion = r.id_institucion
+        ORDER BY pct_aprovechado DESC;
+
+    OPEN p_ranking FOR
+        SELECT h.nombre, count(*),
+               RANK() OVER (ORDER BY count(*) DESC) AS ranking,
+               sum(count(*)) OVER (ORDER BY count(*) DESC, h.nombre),
+               round(100.0 * count(*) / sum(count(*)) OVER (), 1)
+        FROM transfusiones t JOIN instituciones h ON h.id_institucion = t.id_institucion
+        GROUP BY h.nombre
+        ORDER BY ranking;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SP36. sp_obtener_personal
+-- Personal con filtros (NULL = todos). LEFT JOIN a usuarios: aparece
+-- también el personal sin cuenta (consulta 2).
+-- Columnas: id, nombre, cargo, institución, cédula, estado, usuario, estado usuario
+-- Ejemplo: BEGIN; CALL sp_obtener_personal(NULL, 2, NULL, NULL, NULL); FETCH ALL FROM cursor_personal; COMMIT;
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_obtener_personal(
+    IN p_buscar VARCHAR(100),
+    IN p_id_institucion INTEGER,
+    IN p_id_cargo INTEGER,
+    IN p_id_estado INTEGER,
+    OUT p_personal REFCURSOR
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    p_personal := 'cursor_personal';
+
+    OPEN p_personal FOR
+        SELECT pe.id_personal, p.nombres || ' ' || p.apellidos, c.nombre, i.nombre,
+               pe.cedula_profesional, ep.nombre, u.usuario_login, eu.nombre
+        FROM personal pe
+        JOIN personas p ON p.id_persona = pe.id_persona
+        JOIN cat_cargos c ON c.id_cargo = pe.id_cargo
+        JOIN instituciones i ON i.id_institucion = pe.id_institucion
+        JOIN cat_estados_personal ep ON ep.id_estado_personal = pe.id_estado_personal
+        LEFT JOIN usuarios u ON u.id_personal = pe.id_personal
+        LEFT JOIN cat_estados_usuario eu ON eu.id_estado_usuario = u.id_estado_usuario
+        WHERE (p_buscar IS NULL OR p.nombres || ' ' || p.apellidos ILIKE '%' || p_buscar || '%'
+               OR pe.cedula_profesional ILIKE '%' || p_buscar || '%')
+          AND (p_id_institucion IS NULL OR pe.id_institucion = p_id_institucion)
+          AND (p_id_cargo IS NULL OR pe.id_cargo = p_id_cargo)
+          AND (p_id_estado IS NULL OR pe.id_estado_personal = p_id_estado)
+        ORDER BY p.nombres, p.apellidos;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SP37. sp_registrar_personal
+-- Registra persona + teléfono + personal (estado Activo).
+-- Reglas: permiso 'Gestionar usuarios y roles'; mayor de edad; institución
+-- Activa; correo y cédula sin repetir.
+-- Ejemplo: CALL sp_registrar_personal('Luis', 'Mora', '1985-02-02', 2, NULL, NULL, 2, 3, 'CED-123', 1, NULL);
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_registrar_personal(
+    IN p_nombres VARCHAR(100),
+    IN p_apellidos VARCHAR(100),
+    IN p_fecha_nacimiento DATE,
+    IN p_id_sexo INTEGER,
+    IN p_correo VARCHAR(150),
+    IN p_telefono VARCHAR(15),
+    IN p_id_institucion INTEGER,
+    IN p_id_cargo INTEGER,
+    IN p_cedula VARCHAR(20),
+    IN p_id_personal_admin INTEGER,
+    OUT p_id_personal INTEGER
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_id_persona INTEGER;
+BEGIN
+    IF NOT fn_tiene_permiso(p_id_personal_admin, 'Gestionar usuarios y roles') THEN
+        RAISE EXCEPTION 'No tienes permiso para registrar personal';
+    END IF;
+
+    PERFORM fn_validar_persona(p_nombres, p_apellidos, p_fecha_nacimiento, p_correo, p_telefono, 18, 100);
+
+    IF NOT EXISTS (SELECT 1 FROM instituciones WHERE id_institucion = p_id_institucion AND id_estado_institucion = 1) THEN
+        RAISE EXCEPTION 'La institución no existe o no está Activa';
+    END IF;
+
+    BEGIN
+        INSERT INTO personas (id_sexo, nombres, apellidos, fecha_nacimiento, correo)
+        VALUES (p_id_sexo, trim(p_nombres), trim(p_apellidos), p_fecha_nacimiento, lower(p_correo))
+        RETURNING id_persona INTO v_id_persona;
+
+        IF p_telefono IS NOT NULL THEN
+            INSERT INTO telefonos (id_persona, telefono, id_tipo_telefono) VALUES (v_id_persona, p_telefono, 3);
+        END IF;
+
+        INSERT INTO personal (id_persona, id_institucion, id_cargo, cedula_profesional, id_estado_personal)
+        VALUES (v_id_persona, p_id_institucion, p_id_cargo, upper(trim(p_cedula)), 1)
+        RETURNING id_personal INTO p_id_personal;
+    EXCEPTION
+        WHEN unique_violation THEN
+            RAISE EXCEPTION 'Ya existe una persona con ese correo o personal con esa cédula';
+        WHEN foreign_key_violation THEN
+            RAISE EXCEPTION 'El sexo o el cargo no existen en el catálogo';
+    END;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SP38. sp_obtener_personal_detalle
+-- Un miembro del personal con su usuario, roles, actividad y teléfonos.
+-- cursor_empleado: id, id_persona, nombres, apellidos, fecha_nac, correo, edad,
+--   sexo, cargo, institución, cédula, estado, id_estado, id_usuario, usuario,
+--   estado usuario, último acceso, roles, donaciones, solicitudes,
+--   transfusiones, traslados, id_sexo, id_institución, id_cargo, teléfono
+-- Ejemplo: BEGIN; CALL sp_obtener_personal_detalle(2, NULL, NULL); FETCH ALL FROM cursor_empleado; COMMIT;
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_obtener_personal_detalle(
+    IN p_id_personal INTEGER,
+    OUT p_empleado REFCURSOR,
+    OUT p_telefonos REFCURSOR
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    p_empleado := 'cursor_empleado';
+    p_telefonos := 'cursor_telefonos_empleado';
+
+    OPEN p_empleado FOR
+        SELECT pe.id_personal, pe.id_persona, p.nombres, p.apellidos, p.fecha_nacimiento, p.correo,
+               fn_calcular_edad(p.fecha_nacimiento), sx.nombre, c.nombre, i.nombre,
+               pe.cedula_profesional, ep.nombre, pe.id_estado_personal,
+               u.id_usuario, u.usuario_login, eu.nombre, u.ultimo_acceso,
+               (SELECT string_agg(r.nombre, ', ' ORDER BY r.nombre) FROM usuario_rol ur
+                JOIN cat_roles r ON r.id_rol = ur.id_rol WHERE ur.id_usuario = u.id_usuario),
+               (SELECT count(*) FROM donaciones x WHERE x.id_personal = pe.id_personal),
+               (SELECT count(*) FROM solicitudes x WHERE x.id_personal = pe.id_personal),
+               (SELECT count(*) FROM transfusiones x WHERE x.id_personal = pe.id_personal),
+               (SELECT count(*) FROM traslados x WHERE x.id_personal = pe.id_personal),
+               p.id_sexo, pe.id_institucion, pe.id_cargo,
+               (SELECT t.telefono FROM telefonos t WHERE t.id_persona = pe.id_persona ORDER BY t.id_telefono LIMIT 1)
+        FROM personal pe
+        JOIN personas p ON p.id_persona = pe.id_persona
+        JOIN cat_sexo sx ON sx.id_sexo = p.id_sexo
+        JOIN cat_cargos c ON c.id_cargo = pe.id_cargo
+        JOIN instituciones i ON i.id_institucion = pe.id_institucion
+        JOIN cat_estados_personal ep ON ep.id_estado_personal = pe.id_estado_personal
+        LEFT JOIN usuarios u ON u.id_personal = pe.id_personal
+        LEFT JOIN cat_estados_usuario eu ON eu.id_estado_usuario = u.id_estado_usuario
+        WHERE pe.id_personal = p_id_personal;
+
+    OPEN p_telefonos FOR
+        SELECT t.telefono, tt.nombre
+        FROM telefonos t
+        JOIN cat_tipos_telefono tt ON tt.id_tipo_telefono = t.id_tipo_telefono
+        WHERE t.id_persona = (SELECT id_persona FROM personal WHERE id_personal = p_id_personal)
+        ORDER BY t.id_telefono;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SP39. sp_actualizar_personal
+-- Modifica datos, institución, cargo, cédula y estado del personal.
+-- Reglas: permiso 'Gestionar usuarios y roles'; nadie se desactiva a sí
+-- mismo; la institución nueva debe estar Activa; si el personal deja de
+-- estar Activo su usuario también se desactiva.
+-- Ejemplo: CALL sp_actualizar_personal(9, 'Diana', 'Pérez Navarro', '1990-01-01', 1, NULL, NULL, 2, 5, NULL, 3, 1);
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_actualizar_personal(
+    IN p_id_personal INTEGER,
+    IN p_nombres VARCHAR(100),
+    IN p_apellidos VARCHAR(100),
+    IN p_fecha_nacimiento DATE,
+    IN p_id_sexo INTEGER,
+    IN p_correo VARCHAR(150),
+    IN p_telefono VARCHAR(15),
+    IN p_id_institucion INTEGER,
+    IN p_id_cargo INTEGER,
+    IN p_cedula VARCHAR(20),
+    IN p_id_estado INTEGER,
+    IN p_id_personal_admin INTEGER
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_id_persona INTEGER;
+    v_id_institucion INTEGER;
+    v_telefono VARCHAR(15);
+BEGIN
+    IF NOT fn_tiene_permiso(p_id_personal_admin, 'Gestionar usuarios y roles') THEN
+        RAISE EXCEPTION 'No tienes permiso para modificar personal';
+    END IF;
+
+    SELECT id_persona, id_institucion INTO v_id_persona, v_id_institucion
+    FROM personal WHERE id_personal = p_id_personal;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'El personal % no existe', p_id_personal;
+    END IF;
+
+    IF p_id_personal = p_id_personal_admin AND p_id_estado <> 1 THEN
+        RAISE EXCEPTION 'No puedes desactivar tu propio registro';
+    END IF;
+
+    PERFORM fn_validar_persona(p_nombres, p_apellidos, p_fecha_nacimiento, p_correo, p_telefono, 18, 100);
+
+    IF p_id_institucion <> v_id_institucion
+       AND NOT EXISTS (SELECT 1 FROM instituciones WHERE id_institucion = p_id_institucion AND id_estado_institucion = 1) THEN
+        RAISE EXCEPTION 'La institución nueva no existe o no está Activa';
+    END IF;
+
+    BEGIN
+        UPDATE personas
+        SET nombres = trim(p_nombres), apellidos = trim(p_apellidos), fecha_nacimiento = p_fecha_nacimiento,
+            id_sexo = p_id_sexo, correo = lower(p_correo)
+        WHERE id_persona = v_id_persona;
+
+        SELECT telefono INTO v_telefono FROM telefonos WHERE id_persona = v_id_persona ORDER BY id_telefono LIMIT 1;
+        IF v_telefono IS NOT NULL AND p_telefono IS NULL THEN
+            DELETE FROM telefonos WHERE id_persona = v_id_persona AND telefono = v_telefono;
+        ELSIF v_telefono IS NOT NULL AND p_telefono <> v_telefono THEN
+            UPDATE telefonos SET telefono = p_telefono WHERE id_persona = v_id_persona AND telefono = v_telefono;
+        ELSIF v_telefono IS NULL AND p_telefono IS NOT NULL THEN
+            INSERT INTO telefonos (id_persona, telefono, id_tipo_telefono) VALUES (v_id_persona, p_telefono, 3);
+        END IF;
+
+        UPDATE personal
+        SET id_institucion = p_id_institucion, id_cargo = p_id_cargo,
+            cedula_profesional = upper(trim(p_cedula)), id_estado_personal = p_id_estado
+        WHERE id_personal = p_id_personal;
+
+        IF p_id_estado <> 1 THEN
+            UPDATE usuarios SET id_estado_usuario = 2 WHERE id_personal = p_id_personal;
+        END IF;
+    EXCEPTION
+        WHEN unique_violation THEN
+            RAISE EXCEPTION 'Ya existe una persona con ese correo o personal con esa cédula';
+        WHEN foreign_key_violation THEN
+            RAISE EXCEPTION 'El sexo, cargo o estado no existen en el catálogo';
+    END;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SP40. sp_eliminar_personal
+-- Elimina a un miembro del personal (y su usuario) si no tiene registros
+-- en el historial; si los tiene, baja lógica: personal y usuario Inactivos.
+-- p_resultado: 'Eliminado' o 'Baja lógica'
+-- Ejemplo: CALL sp_eliminar_personal(9, 1, NULL);
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_eliminar_personal(
+    IN p_id_personal INTEGER,
+    IN p_id_personal_admin INTEGER,
+    OUT p_resultado VARCHAR(30)
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_id_persona INTEGER;
+BEGIN
+    IF NOT fn_tiene_permiso(p_id_personal_admin, 'Gestionar usuarios y roles') THEN
+        RAISE EXCEPTION 'No tienes permiso para eliminar personal';
+    END IF;
+
+    IF p_id_personal = p_id_personal_admin THEN
+        RAISE EXCEPTION 'No puedes eliminar tu propio registro';
+    END IF;
+
+    SELECT id_persona INTO v_id_persona FROM personal WHERE id_personal = p_id_personal;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'El personal % no existe', p_id_personal;
+    END IF;
+
+    BEGIN
+        DELETE FROM usuario_rol WHERE id_usuario IN (SELECT id_usuario FROM usuarios WHERE id_personal = p_id_personal);
+        DELETE FROM usuarios WHERE id_personal = p_id_personal;
+        DELETE FROM personal WHERE id_personal = p_id_personal;
+
+        BEGIN
+            DELETE FROM telefonos WHERE id_persona = v_id_persona;
+            DELETE FROM personas WHERE id_persona = v_id_persona;
+        EXCEPTION
+            WHEN foreign_key_violation THEN NULL;
+        END;
+
+        p_resultado := 'Eliminado';
+    EXCEPTION
+        WHEN foreign_key_violation THEN
+            UPDATE personal SET id_estado_personal = 2 WHERE id_personal = p_id_personal;
+            UPDATE usuarios SET id_estado_usuario = 2 WHERE id_personal = p_id_personal;
+            p_resultado := 'Baja lógica';
+    END;
+END;
+$$;
+
+
+-- ---------------------------------------------------------------------
+-- SP41. sp_crear_usuario
+-- Crea la cuenta de un miembro del personal con un rol. La contraseña se
+-- guarda como hash bcrypt (crypt + gen_salt de pgcrypto), nunca en texto.
+-- Reglas: permiso 'Gestionar usuarios y roles'; personal Activo y sin
+-- usuario; usuario de 4 a 50 caracteres (minúsculas, números, . y _);
+-- contraseña de 8+ caracteres con letras y números; usuario sin repetir.
+-- Ejemplo: CALL sp_crear_usuario(9, 'dperez', 'Clave2026', 3, 1);
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE sp_crear_usuario(
+    IN p_id_personal INTEGER,
+    IN p_login VARCHAR(50),
+    IN p_password VARCHAR(100),
+    IN p_id_rol INTEGER,
+    IN p_id_personal_admin INTEGER
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_estado SMALLINT;
+    v_id_usuario INTEGER;
+BEGIN
+    IF NOT fn_tiene_permiso(p_id_personal_admin, 'Gestionar usuarios y roles') THEN
+        RAISE EXCEPTION 'No tienes permiso para crear usuarios';
+    END IF;
+
+    SELECT id_estado_personal INTO v_estado FROM personal WHERE id_personal = p_id_personal;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'El personal % no existe', p_id_personal;
+    END IF;
+
+    IF v_estado <> 1 THEN
+        RAISE EXCEPTION 'Solo el personal Activo puede tener usuario';
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM usuarios WHERE id_personal = p_id_personal) THEN
+        RAISE EXCEPTION 'Esta persona ya tiene usuario';
+    END IF;
+
+    IF p_login IS NULL OR lower(trim(p_login)) !~ '^[a-z0-9._]{4,50}$' THEN
+        RAISE EXCEPTION 'El usuario debe tener de 4 a 50 caracteres: minúsculas, números, punto o guion bajo';
+    END IF;
+
+    IF p_password IS NULL OR length(p_password) < 8 OR p_password !~ '[A-Za-z]' OR p_password !~ '[0-9]' THEN
+        RAISE EXCEPTION 'La contraseña debe tener al menos 8 caracteres, con letras y números';
+    END IF;
+
+    IF p_id_rol IS NULL THEN
+        RAISE EXCEPTION 'Selecciona el rol';
+    END IF;
+
+    BEGIN
+        INSERT INTO usuarios (id_personal, usuario_login, password_hash, id_estado_usuario)
+        VALUES (p_id_personal, lower(trim(p_login)), crypt(p_password, gen_salt('bf', 10)), 1)
+        RETURNING id_usuario INTO v_id_usuario;
+
+        INSERT INTO usuario_rol (id_usuario, id_rol) VALUES (v_id_usuario, p_id_rol);
+    EXCEPTION
+        WHEN unique_violation THEN
+            RAISE EXCEPTION 'El usuario % ya existe', lower(trim(p_login));
+    END;
 END;
 $$;

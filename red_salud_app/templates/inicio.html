@@ -1,56 +1,71 @@
-{% extends 'base.html' %}
-{% from '_macros.html' import etiqueta %}
-{% block titulo %}Inicio{% endblock %}
-{% block contenido %}
+{% include 'encabezado.html' %}
+
 <div class="bienvenida">
   <div>
-    <h1>Hola, {{ session['nombre'] }}</h1>
-    <p>{{ session['cargo'] }} · {{ session['institucion'] }}<br>Rol: {{ session['roles'] }}</p>
+    <h1>Hola, {{session['nombre']}}</h1>
+    <p>{{session['cargo']}} · {{session['institucion']}}<br>Rol: {{session['roles']}}</p>
   </div>
 </div>
 
-{% if bajo_minimo is not none %}
+{% if tiene('Consultar inventario y alertas') %}
 <div class="panel">
   <h2>Inventario bajo el mínimo</h2>
   <p class="nota">Unidades disponibles de cada banco por componente, comparadas con su mínimo (CROSS JOIN banco × componente).</p>
-  {% for b in bajo_minimo %}
-    <div class="alerta rojo"><b>{{ b.banco_sangre }}</b> · {{ b.componente }}: hay {{ b.disponibles }}, mínimo {{ b.minimo }}</div>
+  {% for m in Minimos %}
+    <div class="alerta rojo"><b>{{m[0]}}</b> · {{m[1]}}: hay {{m[2]}}, mínimo {{m[3]}}</div>
   {% else %}
     <div class="vacio">Todos los bancos están en su mínimo o arriba.</div>
   {% endfor %}
 </div>
-{% endif %}
 
-{% if proximos is not none %}
 <div class="panel">
   <h2>Unidades próximas a caducar (7 días)</h2>
   <p class="nota">Fuente: vista_inventario_proximo_a_caducar</p>
-  {% if proximos %}
+  {% if Proximos %}
   <div class="tabla"><table>
     <tr><th>Folio</th><th>Institución</th><th>Tipo</th><th>Componente</th><th>Caduca</th><th>Días</th><th>ml</th></tr>
-    {% for p in proximos %}
-    <tr><td>{{ p.folio }}</td><td>{{ p.institucion }}</td><td><b>{{ p.tipo_sangre }}</b></td><td>{{ p.componente }}</td>
-        <td>{{ p.fecha_caducidad|fechahora }}</td><td>{{ p.dias_restantes }}</td><td>{{ p.cantidad }}</td></tr>
+    {% for p in Proximos %}
+    <tr>
+      <td>{{p[0]}}</td>
+      <td>{{p[1]}}</td>
+      <td><b>{{p[2]}}</b></td>
+      <td>{{p[3]}}</td>
+      <td>{{p[4]|fechahora}}</td>
+      <td>{{p[5]}}</td>
+      <td>{{p[6]}}</td>
+    </tr>
     {% endfor %}
   </table></div>
-  {% else %}<div class="vacio">No hay unidades que caduquen en los próximos 7 días.</div>{% endif %}
+  {% else %}
+  <div class="vacio">No hay unidades que caduquen en los próximos 7 días.</div>
+  {% endif %}
 </div>
 {% endif %}
 
-{% if activas is not none %}
+{% if tiene('Registrar solicitudes') or tiene('Consultar compatibilidad') %}
 <div class="panel">
   <h2>Solicitudes activas{% if not tiene('Consultar reportes regionales') %} de tu institución{% endif %}</h2>
   <p class="nota">Fuente: vista_hospitales_solicitudes_activas (En proceso o Aprobadas, la más urgente primero)</p>
-  {% if activas %}
+  {% if Activas %}
   <div class="tabla"><table>
     <tr><th>Solicitud</th><th>Hospital</th><th>Urgencia</th><th>Tipo</th><th>Cantidad</th><th>Estado</th><th>Fecha límite</th><th></th></tr>
-    {% for a in activas %}
-    <tr><td>{{ a.id_solicitud }}</td><td>{{ a.hospital }}</td><td>{{ etiqueta(a.urgencia) }}</td><td><b>{{ a.tipo_sangre }}</b></td>
-        <td>{{ a.cantidad }}</td><td>{{ etiqueta(a.estado_solicitud) }}</td><td>{{ a.fecha_limite|fechahora }}</td>
-        <td><a class="btn btn-sec btn-chico" href="{{ url_for('solicitud_detalle', id_solicitud=a.id_solicitud) }}">Ver</a></td></tr>
+    {% for a in Activas %}
+    <tr>
+      <td>{{a[0]}}</td>
+      <td>{{a[1]}}</td>
+      <td><span class="etiqueta {{a[2]|lower}}">{{a[2]}}</span></td>
+      <td><b>{{a[3]}}</b></td>
+      <td>{{a[4]}}</td>
+      <td><span class="etiqueta {{a[5]|lower|replace(' ', '-')}}">{{a[5]}}</span></td>
+      <td>{{a[6]|fechahora}}</td>
+      <td><a class="btn btn-sec btn-chico" href="/solicitud/{{a[0]}}">Ver</a></td>
+    </tr>
     {% endfor %}
   </table></div>
-  {% else %}<div class="vacio">No hay solicitudes activas.</div>{% endif %}
+  {% else %}
+  <div class="vacio">No hay solicitudes activas.</div>
+  {% endif %}
 </div>
 {% endif %}
-{% endblock %}
+
+{% include 'pie.html' %}

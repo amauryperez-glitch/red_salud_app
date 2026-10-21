@@ -1,32 +1,57 @@
-{% extends 'base.html' %}
-{% from '_macros.html' import opciones, opciones_nombre, etiqueta %}
-{% block titulo %}Inventario{% endblock %}
+{% include 'encabezado.html' %}
 
-
-{% block contenido %}
 <h1 class="titulo">Inventario</h1>
 <p class="sub">Unidades de sangre (vista_inventario_sangre) y órganos, primero lo que caduca antes (FEFO)</p>
 
-<form class="filtros" method="GET">
-  <select name="banco">{{ opciones(instituciones, f.banco, 'Todas las instituciones') }}</select>
-  <select name="tipo">{{ opciones_nombre(tipos_sangre, f.tipo, 'Todos los tipos') }}</select>
-  <select name="componente">{{ opciones_nombre(componentes, f.componente, 'Todos los componentes') }}</select>
-  <select name="estado">{{ opciones_nombre(estados_recurso, f.estado, 'En circulación') }}</select>
+<form class="filtros" action="/inventario" method="GET">
+  <select name="banco">
+    <option value="">Todas las instituciones</option>
+    {% for i in Instituciones %}<option value="{{i[0]}}" {% if request.args.get('banco') == i[0]|string %}selected{% endif %}>{{i[1]}}</option>{% endfor %}
+  </select>
+  <select name="tipo">
+    <option value="">Todos los tipos</option>
+    {% for t in Tipos %}<option value="{{t[1]}}" {% if request.args.get('tipo') == t[1] %}selected{% endif %}>{{t[1]}}</option>{% endfor %}
+  </select>
+  <select name="componente">
+    <option value="">Todos los componentes</option>
+    {% for c in Componentes %}<option value="{{c[1]}}" {% if request.args.get('componente') == c[1] %}selected{% endif %}>{{c[1]}}</option>{% endfor %}
+  </select>
+  <select name="estado">
+    <option value="">En circulación</option>
+    {% for e in Estados %}<option value="{{e[1]}}" {% if request.args.get('estado') == e[1] %}selected{% endif %}>{{e[1]}}</option>{% endfor %}
+  </select>
   <button class="btn btn-sec" type="submit">Filtrar</button>
-  <a class="btn btn-sec" href="{{ url_for('inventario') }}">Limpiar</a>
+  <a class="btn btn-sec" href="/inventario">Limpiar</a>
 </form>
 
-<h2 class="seccion">Componentes sanguíneos <small>({{ sangre|length }})</small></h2>
+<h2 class="seccion">Componentes sanguíneos <small>({{Sangre|length}})</small></h2>
 <div class="tabla"><table>
   <tr><th>Folio</th><th>Componente</th><th>Tipo</th><th>Institución</th><th>Estado</th><th>Extracción</th><th>Caduca</th><th>Días</th><th>ml</th><th>Acción</th></tr>
-  {% for r in sangre %}
+  {% for r in Sangre %}
   <tr>
-    <td>{{ r.folio }}</td><td>{{ r.componente }}</td><td><b>{{ r.tipo_sangre }}</b></td><td>{{ r.banco_sangre }}</td>
-    <td>{{ etiqueta(r.estado_recurso) }}</td><td>{{ r.fecha_extraccion|fecha }}</td><td>{{ r.fecha_caducidad|fechahora }}</td>
-    <td>{{ r.dias }}</td><td>{{ r.cantidad }}</td>
+    <td>{{r[1]}}</td>
+    <td>{{r[4]}}</td>
+    <td><b>{{r[3]}}</b></td>
+    <td>{{r[2]}}</td>
+    <td><span class="etiqueta {{r[5]|lower|replace(' ', '-')}}">{{r[5]}}</span></td>
+    <td>{{r[6]|fecha}}</td>
+    <td>{{r[7]|fechahora}}</td>
+    <td>{{r[9]}}</td>
+    <td>{{r[8]}}</td>
     <td>
-      {% if tiene('Registrar descartes') and r.estado_recurso in ['Disponible', 'Reservado'] %}
-      {% set id_recurso = r.id_recurso %}{% include '_descartar.html' %}
+      {% if tiene('Registrar descartes') and r[5] in ['Disponible', 'Reservado'] %}
+      <details class="accion"><summary>Descartar</summary>
+        <div class="caja-accion">
+        <form action="/descartar" method="POST" class="validar" data-confirmar="¿Descartar este recurso? No se puede deshacer.">
+          <input type="hidden" name="id_recurso" value="{{r[0]}}">
+          <label>Causa</label>
+          <select name="id_causa">{% for c in Causas %}<option value="{{c[0]}}">{{c[1]}}</option>{% endfor %}</select>
+          <label class="separado">Motivo *</label>
+          <input type="text" name="motivo" required>
+          <button class="btn btn-peligro btn-chico separado" type="submit">Descartar</button>
+        </form>
+        </div>
+      </details>
       {% endif %}
     </td>
   </tr>
@@ -35,16 +60,33 @@
   {% endfor %}
 </table></div>
 
-<h2 class="seccion">Órganos en circulación <small>({{ organos|length }})</small></h2>
+<h2 class="seccion">Órganos en circulación <small>({{Organos|length}})</small></h2>
 <div class="tabla"><table>
   <tr><th>Folio</th><th>Órgano</th><th>Tipo</th><th>Institución</th><th>Estado</th><th>Viabilidad</th><th>Límite</th><th>Días</th><th>Acción</th></tr>
-  {% for o in organos %}
+  {% for o in Organos %}
   <tr>
-    <td>{{ o.folio }}</td><td>{{ o.organo }}</td><td><b>{{ o.tipo_sangre }}</b></td><td>{{ o.institucion }}</td>
-    <td>{{ etiqueta(o.estado) }}</td><td>{{ etiqueta(o.viabilidad) }}</td><td>{{ o.fecha_hora_caducidad|fechahora }}</td><td>{{ o.dias }}</td>
+    <td>{{o[1]}}</td>
+    <td>{{o[2]}}</td>
+    <td><b>{{o[3]}}</b></td>
+    <td>{{o[4]}}</td>
+    <td><span class="etiqueta {{o[5]|lower|replace(' ', '-')}}">{{o[5]}}</span></td>
+    <td><span class="etiqueta {{o[6]|lower|replace(' ', '-')}}">{{o[6]}}</span></td>
+    <td>{{o[7]|fechahora}}</td>
+    <td>{{o[8]}}</td>
     <td>
-      {% if tiene('Registrar descartes') and o.estado in ['Disponible', 'Reservado'] %}
-      {% set id_recurso = o.id_recurso %}{% include '_descartar.html' %}
+      {% if tiene('Registrar descartes') and o[5] in ['Disponible', 'Reservado'] %}
+      <details class="accion"><summary>Descartar</summary>
+        <div class="caja-accion">
+        <form action="/descartar" method="POST" class="validar" data-confirmar="¿Descartar este órgano? No se puede deshacer.">
+          <input type="hidden" name="id_recurso" value="{{o[0]}}">
+          <label>Causa</label>
+          <select name="id_causa">{% for c in Causas %}<option value="{{c[0]}}">{{c[1]}}</option>{% endfor %}</select>
+          <label class="separado">Motivo *</label>
+          <input type="text" name="motivo" required>
+          <button class="btn btn-peligro btn-chico separado" type="submit">Descartar</button>
+        </form>
+        </div>
+      </details>
       {% endif %}
     </td>
   </tr>
@@ -52,4 +94,5 @@
   <tr><td colspan="9" class="vacio">No hay órganos en circulación.</td></tr>
   {% endfor %}
 </table></div>
-{% endblock %}
+
+{% include 'pie.html' %}

@@ -5,17 +5,17 @@ Aplicación web para la red regional de bancos de sangre y donación de órganos
 ## 1. Estructura
 
 ```
-app.py                                   rutas de Flask (configuración por variables de entorno)
-requirements.txt                         Flask, psycopg 3, gunicorn
+app.py                                   rutas de Flask (solo CALL a procedimientos + FETCH de sus cursores)
+requirements.txt                         Flask, psycopg 3
 db/01_schema_banco_sangre_organos.sql    CREATE ROLE + CREATE DATABASE + tablas + índices
 db/02_inserts_banco_sangre_organos.sql   datos de prueba (contraseñas con hash bcrypt)
-db/03_funciones.sql                      8 funciones de apoyo (no cuentan como procedimientos)
-db/04_procedimientos.sql                 16 procedimientos almacenados documentados (CALL)
+db/03_funciones.sql                      9 funciones de apoyo (no cuentan como procedimientos)
+db/04_procedimientos.sql                 41 procedimientos almacenados (16 de reglas de negocio + 25 de consulta y CRUD)
 db/05_vistas.sql                         5 vistas
 db/06_consultas.sql                      consultas con JOIN y complementarias (solo lectura)
 db/07_pruebas_procedimientos.sql         pruebas de los procedimientos (opcional, agrega datos)
 db/07_resultado_pruebas.txt              resultado obtenido de esas pruebas
-templates/                               pantallas (Jinja2, base.html + una por módulo)
+templates/                               pantallas (Jinja2; encabezado.html y pie.html se incluyen en cada una)
 static/css/estilos.css  static/js/validaciones.js
 ```
 
@@ -58,22 +58,25 @@ sudo -u postgres psql < 06_consultas.sql > 06_resultado_consultas.txt     # evid
   (agrega datos; después vuelve a correr 01 a 05 para dejar la base limpia).
 
 ### 2.3 Aplicación
+Instalar (una sola vez):
 ```bash
 cd ..                       # carpeta red_salud_app
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-
-export DB_HOST=localhost DB_PORT=5432 DB_NAME=banco_sangre_organos DB_USER=app_banco
-export DB_PASSWORD='TuClaveSegura'
-export SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
-
-python app.py                                  # prueba local: http://127.0.0.1:5000
-gunicorn -w 2 -b 0.0.0.0:8000 app:app          # servidor: http://IP_DEL_SERVIDOR:8000
-sudo firewall-cmd --add-port=8000/tcp --permanent && sudo firewall-cmd --reload
 ```
-Las contraseñas **no** están en el código ni en el repositorio: se leen de las variables de entorno.
-Con varios workers de gunicorn, `SECRET_KEY` debe ser la misma para todos (exportarla antes, como arriba).
+Correrla (cada vez que la quieras usar; se apaga con Ctrl + C o al cerrar la terminal):
+```bash
+cd red_salud_app
+source venv/bin/activate
+export FLASK_APP=app.py
+export DB_HOST=localhost DB_NAME=banco_sangre_organos DB_USER=app_banco
+export DB_PASSWORD='TuClaveSegura'
+flask run --host=0.0.0.0 --port=8000
+```
+Abrir `http://IP_DEL_SERVIDOR:8000` (el puerto 8000 debe estar abierto en el firewall).
+Sin espacios alrededor del `=` en los `export`. La contraseña de la base **no** está en el código:
+`app.py` la lee de `DB_PASSWORD`.
 
 ## 3. Usuarios de prueba (contraseña `Demo2026!`)
 | Usuario | Rol | Institución |
@@ -91,26 +94,27 @@ Con varios workers de gunicorn, `SECRET_KEY` debe ser la misma para todos (expor
 
 ## 4. Cómo se cumple cada requisito
 **Autenticación:** `sp_validar_login` compara la contraseña contra el hash bcrypt (pgcrypto); los usuarios nuevos se
-guardan con `crypt(..., gen_salt('bf'))`. Sesión de Flask con cookie HttpOnly. Cada ruta tiene `@login_requerido` o
-`@permiso_requerido(...)` (sin sesión redirige al login; sin permiso responde 403) y los procedimientos vuelven a
-revisar el permiso con `fn_tiene_permiso`.
+guardan con `crypt(..., gen_salt('bf'))` dentro de `sp_crear_usuario`. Cada ruta revisa la sesión (sin sesión
+redirige al login) y el permiso del rol (sin permiso responde 403), y los procedimientos vuelven a revisar el permiso
+con `fn_tiene_permiso`.
 
 **CRUD (equivalencias de Pacientes / Médicos / Consultas):**
 | Entidad | Crear | Consultar | Modificar | Eliminar |
 |---|---|---|---|---|
-| Donantes (`/donantes`) | `sp_registrar_donante` | lista con búsqueda y filtros + detalle con historial | datos, teléfono, tipo (si no ha donado), estado | físico si no tiene historial; si tiene donaciones, baja lógica (Inactivo) |
-| Personal (`/personal`) | persona + personal (+ usuario con hash) | lista con filtros (LEFT JOIN usuarios) + detalle | datos, institución, cargo, cédula, estado | físico si no tiene registros; si tiene, baja lógica (personal y usuario Inactivos) |
-| Solicitudes (`/solicitudes`) | `sp_registrar_solicitud_sangre` / `_organo` | lista con filtros + detalle (vista_matching) | urgencia, fecha límite, motivo, observaciones | `sp_cancelar_solicitud` (baja lógica: queda Cancelada) |
+| Donantes (`/donantes`) | `sp_registrar_donante` | lista con búsqueda y filtros + detalle con historial | `sp_actualizar_donante` | `sp_eliminar_donante`: físico si no tiene historial; si tiene, baja lógica (Inactivo) |
+| Personal (`/personal`) | `sp_registrar_personal` (+ `sp_crear_usuario` con hash) | lista con filtros (LEFT JOIN usuarios) + detalle | `sp_actualizar_personal` | `sp_eliminar_personal`: físico si no tiene registros; si tiene, baja lógica |
+| Solicitudes (`/solicitudes`) | `sp_registrar_solicitud_sangre` / `_organo` | lista con filtros + detalle (vista_matching) | `sp_actualizar_solicitud` | `sp_cancelar_solicitud` (baja lógica: queda Cancelada) |
 
-**Procedimientos desde Flask:** los 16 (login, donante, donación, laboratorio, fraccionar, matching, solicitudes de
-sangre y órgano, asignar, traslado, recepción, transfusión, descarte, órgano, trasplante, cancelar).
+**Procedimientos desde Flask:** los 41. `app.py` no tiene SQL directo: cada pantalla hace `CALL sp_...` y, para
+leer, `FETCH ALL FROM cursor_...` (procedimientos con parámetro OUT REFCURSOR).
 
-**Vistas en Flask:** `vista_inventario_proximo_a_caducar` y `vista_hospitales_solicitudes_activas` (Inicio),
-`vista_inventario_sangre` (Inventario), `vista_matching` (detalle de solicitud), `vista_traslados` (Traslados).
+**Vistas en Flask** (a través de procedimientos): `vista_inventario_proximo_a_caducar` y
+`vista_hospitales_solicitudes_activas` (Inicio, `sp_obtener_inicio`), `vista_inventario_sangre` (Inventario),
+`vista_matching` (detalle de solicitud), `vista_traslados` (Traslados).
 
 **Consultas en Flask:** CROSS JOIN de inventario bajo mínimo (Inicio), LEFT JOIN personal-usuarios (Personal),
 CTE de aprovechamiento y funciones de ventana (Reportes).
 
-**Validaciones:** JavaScript (`static/js/validaciones.js`) y otra vez en el servidor (app.py + procedimientos +
-restricciones de las tablas). Mensajes de éxito/error con `flash`. Errores de conexión o de base de datos muestran una
+**Validaciones:** JavaScript (`static/js/validaciones.js`) y otra vez en el servidor (procedimientos +
+restricciones de las tablas). Mensajes de éxito/error en la página (`?ok=` / `?error=` al redirigir). Errores de conexión o de base de datos muestran una
 página de error. Todas las consultas son parametrizadas y cada operación es una transacción (COMMIT/ROLLBACK).

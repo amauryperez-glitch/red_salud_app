@@ -1,39 +1,45 @@
-{% extends 'base.html' %}
-{% from '_macros.html' import opciones, etiqueta %}
-{% block titulo %}Donantes{% endblock %}
-{% block contenido %}
+{% include 'encabezado.html' %}
+
 <div class="encabezado">
   <div><h1 class="titulo">Donantes</h1><p class="sub">Registro, consulta, modificación y baja de donantes</p></div>
-  <a class="btn" href="{{ url_for('donante_nuevo') }}">+ Registrar donante</a>
+  <a class="btn" href="/insertardonante">+ Registrar donante</a>
 </div>
 
-<form class="filtros" method="GET">
-  <input type="search" name="q" value="{{ q }}" placeholder="Buscar por nombre o id">
-  <select name="tipo">{{ opciones(tipos_sangre, tipo, 'Todos los tipos') }}</select>
-  <select name="estado">{{ opciones(estados_donante, estado, 'Todos los estados') }}</select>
+<!-- busqueda y filtros -->
+<form class="filtros" action="/donantes" method="GET">
+  <input type="search" name="q" value="{{request.args.get('q', '')}}" placeholder="Buscar por nombre o id">
+  <select name="tipo">
+    <option value="">Todos los tipos</option>
+    {% for t in Tipos %}<option value="{{t[0]}}" {% if request.args.get('tipo') == t[0]|string %}selected{% endif %}>{{t[1]}}</option>{% endfor %}
+  </select>
+  <select name="estado">
+    <option value="">Todos los estados</option>
+    {% for e in Estados %}<option value="{{e[0]}}" {% if request.args.get('estado') == e[0]|string %}selected{% endif %}>{{e[1]}}</option>{% endfor %}
+  </select>
   <button class="btn btn-sec" type="submit">Filtrar</button>
-  <a class="btn btn-sec" href="{{ url_for('donantes') }}">Limpiar</a>
+  <a class="btn btn-sec" href="/donantes">Limpiar</a>
 </form>
 
-<p class="nota">{{ donantes|length }} donante(s)</p>
+<p class="nota">{{Donantes|length}} donante(s)</p>
 <div class="tabla"><table>
   <tr><th>Id</th><th>Nombre</th><th>Tipo</th><th>Edad</th><th>Estado</th><th>Correo</th><th>Última donación</th><th></th></tr>
-  {% for d in donantes %}
+  {% for d in Donantes %}
   <tr>
-    <td>{{ d.id_donante }}</td>
-    <td>{{ d.nombre }}</td>
-    <td><b>{{ d.tipo_sangre }}</b></td>
-    <td>{{ d.edad }}</td>
-    <td>{{ etiqueta(d.estado) }}</td>
-    <td>{{ d.correo or '' }}</td>
-    <td>{{ d.ultima|fecha or 'Nunca' }}</td>
+    <td>{{d[0]}}</td>
+    <td>{{d[1]}}</td>
+    <td><b>{{d[2]}}</b></td>
+    <td>{{d[3]}}</td>
+    <td><span class="etiqueta {{d[4]|lower}}">{{d[4]}}</span></td>
+    <td>{{d[5] or ''}}</td>
+    <td>{{d[6]|fecha or 'Nunca'}}</td>
     <td class="acciones-fila">
-      <a class="btn btn-sec btn-chico" href="{{ url_for('donante_detalle', id_donante=d.id_donante) }}">Ver</a>
-      <a class="btn btn-sec btn-chico" href="{{ url_for('donante_editar', id_donante=d.id_donante) }}">Editar</a>
+      <a class="btn btn-sec btn-chico" href="/donante/{{d[0]}}">Ver</a>
+      <a class="btn btn-sec btn-chico" href="/editardonante/{{d[0]}}">Editar</a>
     </td>
   </tr>
   {% else %}
   <tr><td colspan="8" class="vacio">No hay donantes con esos filtros.</td></tr>
   {% endfor %}
 </table></div>
-{% endblock %}
+
+{% include 'pie.html' %}

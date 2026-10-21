@@ -1,16 +1,15 @@
-{% extends 'base.html' %}
-{% from '_macros.html' import opciones, etiqueta %}
-{% block titulo %}Personal {{ persona.id_personal }}{% endblock %}
-{% block contenido %}
+{% include 'encabezado.html' %}
+
 <div class="encabezado">
-  <div><h1 class="titulo">{{ persona.nombres }} {{ persona.apellidos }}</h1>
-       <p class="sub">{{ persona.cargo }} · {{ persona.institucion }} · {{ etiqueta(persona.estado) }}</p></div>
+  <div><h1 class="titulo">{{Empleado[2]}} {{Empleado[3]}}</h1>
+       <p class="sub">{{Empleado[8]}} · {{Empleado[9]}} · <span class="etiqueta {{Empleado[11]|lower}}">{{Empleado[11]}}</span></p></div>
   <div class="botones">
-    <a class="btn btn-sec" href="{{ url_for('personal') }}">Volver</a>
-    <a class="btn" href="{{ url_for('personal_editar', id_personal=persona.id_personal) }}">Editar</a>
-    {% if persona.id_personal != session['id_personal'] %}
-    <form method="POST" action="{{ url_for('personal_eliminar', id_personal=persona.id_personal) }}" class="linea"
+    <a class="btn btn-sec" href="/personal">Volver</a>
+    <a class="btn" href="/editarpersonal/{{Empleado[0]}}">Editar</a>
+    {% if Empleado[0] != session['id_personal'] %}
+    <form action="/borrarpersonal" method="POST" class="linea"
           data-confirmar="¿Eliminar a este personal? Si tiene registros en el historial solo se dará de baja (Inactivo).">
+      <input type="hidden" name="id_personal" value="{{Empleado[0]}}">
       <button class="btn btn-peligro" type="submit">Eliminar</button>
     </form>
     {% endif %}
@@ -19,36 +18,38 @@
 
 <div class="panel">
   <div class="datos">
-    <div><small>Cédula profesional</small>{{ persona.cedula_profesional or '—' }}</div>
-    <div><small>Fecha de nacimiento</small>{{ persona.fecha_nacimiento|fecha }} ({{ persona.edad }} años)</div>
-    <div><small>Sexo</small>{{ persona.sexo }}</div>
-    <div><small>Correo</small>{{ persona.correo or '—' }}</div>
-    <div><small>Teléfonos</small>{% for t in telefonos %}{{ t.telefono }} ({{ t.tipo }})<br>{% else %}—{% endfor %}</div>
+    <div><small>Cédula profesional</small>{{Empleado[10] or '—'}}</div>
+    <div><small>Fecha de nacimiento</small>{{Empleado[4]|fecha}} ({{Empleado[6]}} años)</div>
+    <div><small>Sexo</small>{{Empleado[7]}}</div>
+    <div><small>Correo</small>{{Empleado[5] or '—'}}</div>
+    <div><small>Teléfonos</small>{% for t in Telefonos %}{{t[0]}} ({{t[1]}})<br>{% else %}—{% endfor %}</div>
   </div>
 </div>
 
 <div class="panel">
   <h2>Actividad registrada</h2>
   <div class="tarjetas">
-    <div class="tarjeta"><b>{{ persona.donaciones }}</b><span>Donaciones</span></div>
-    <div class="tarjeta"><b>{{ persona.solicitudes }}</b><span>Solicitudes</span></div>
-    <div class="tarjeta"><b>{{ persona.transfusiones }}</b><span>Transfusiones</span></div>
-    <div class="tarjeta"><b>{{ persona.traslados }}</b><span>Traslados</span></div>
+    <div class="tarjeta"><b>{{Empleado[18]}}</b><span>Donaciones</span></div>
+    <div class="tarjeta"><b>{{Empleado[19]}}</b><span>Solicitudes</span></div>
+    <div class="tarjeta"><b>{{Empleado[20]}}</b><span>Transfusiones</span></div>
+    <div class="tarjeta"><b>{{Empleado[21]}}</b><span>Traslados</span></div>
   </div>
 </div>
 
 <div class="panel">
   <h2>Cuenta de usuario</h2>
-  {% if persona.usuario_login %}
+  {% if Empleado[14] %}
   <div class="datos">
-    <div><small>Usuario</small><b>{{ persona.usuario_login }}</b></div>
-    <div><small>Estado</small>{{ etiqueta(persona.estado_usuario) }}</div>
-    <div><small>Roles</small>{{ persona.roles or '—' }}</div>
-    <div><small>Último acceso</small>{{ persona.ultimo_acceso|fechahora or 'Nunca' }}</div>
+    <div><small>Usuario</small><b>{{Empleado[14]}}</b></div>
+    <div><small>Estado</small><span class="etiqueta {{Empleado[15]|lower}}">{{Empleado[15]}}</span></div>
+    <div><small>Roles</small>{{Empleado[17] or '—'}}</div>
+    <div><small>Último acceso</small>{{Empleado[16]|fechahora or 'Nunca'}}</div>
   </div>
-  {% elif persona.id_estado_personal == 1 %}
+  {% elif Empleado[12] == 1 %}
   <p class="nota">No tiene usuario. La contraseña se guarda cifrada con bcrypt.</p>
-  <form method="POST" action="{{ url_for('personal_crear_usuario', id_personal=persona.id_personal) }}" class="validar">
+  <!-- inicio formulario -->
+  <form action="/crearusuario" method="POST" class="validar">
+    <input type="hidden" name="id_personal" value="{{Empleado[0]}}">
     <div class="campos">
       <div><label for="usuario_login">Usuario *</label>
            <input type="text" id="usuario_login" name="usuario_login" minlength="4" maxlength="50" pattern="[a-z0-9._]{4,50}"
@@ -58,12 +59,17 @@
       <div><label for="confirmar">Confirmar contraseña *</label>
            <input type="password" id="confirmar" name="confirmar" minlength="8" maxlength="100" required data-igual-a="password" autocomplete="new-password"></div>
       <div><label for="id_rol">Rol *</label>
-           <select id="id_rol" name="id_rol" required>{{ opciones(roles, None, 'Selecciona') }}</select></div>
+           <select id="id_rol" name="id_rol" required>
+             <option value="">Selecciona</option>
+             {% for r in Roles %}<option value="{{r[0]}}">{{r[1]}}</option>{% endfor %}
+           </select></div>
     </div>
     <button class="btn" type="submit">Crear usuario</button>
   </form>
+  <!-- fin formulario -->
   {% else %}
   <p class="nota">El personal no está Activo, no puede tener usuario.</p>
   {% endif %}
 </div>
-{% endblock %}
+
+{% include 'pie.html' %}

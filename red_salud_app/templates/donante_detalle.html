@@ -1,15 +1,14 @@
-{% extends 'base.html' %}
-{% from '_macros.html' import etiqueta %}
-{% block titulo %}Donante {{ donante.id_donante }}{% endblock %}
-{% block contenido %}
+{% include 'encabezado.html' %}
+
 <div class="encabezado">
-  <div><h1 class="titulo">{{ donante.nombres }} {{ donante.apellidos }}</h1>
-       <p class="sub">Donante {{ donante.id_donante }} · {{ etiqueta(donante.estado) }}</p></div>
+  <div><h1 class="titulo">{{Donante[2]}} {{Donante[3]}}</h1>
+       <p class="sub">Donante {{Donante[0]}} · <span class="etiqueta {{Donante[9]|lower}}">{{Donante[9]}}</span></p></div>
   <div class="botones">
-    <a class="btn btn-sec" href="{{ url_for('donantes') }}">Volver</a>
-    <a class="btn" href="{{ url_for('donante_editar', id_donante=donante.id_donante) }}">Editar</a>
-    <form method="POST" action="{{ url_for('donante_eliminar', id_donante=donante.id_donante) }}" class="linea"
+    <a class="btn btn-sec" href="/donantes">Volver</a>
+    <a class="btn" href="/editardonante/{{Donante[0]}}">Editar</a>
+    <form action="/borrardonante" method="POST" class="linea"
           data-confirmar="¿Eliminar al donante? Si tiene donaciones registradas solo se dará de baja (Inactivo).">
+      <input type="hidden" name="id_donante" value="{{Donante[0]}}">
       <button class="btn btn-peligro" type="submit">Eliminar</button>
     </form>
   </div>
@@ -17,11 +16,11 @@
 
 <div class="panel">
   <div class="datos">
-    <div><small>Tipo sanguíneo</small><b>{{ donante.tipo_sangre }}</b></div>
-    <div><small>Fecha de nacimiento</small>{{ donante.fecha_nacimiento|fecha }} ({{ donante.edad }} años)</div>
-    <div><small>Sexo</small>{{ donante.sexo }}</div>
-    <div><small>Correo</small>{{ donante.correo or '—' }}</div>
-    <div><small>Teléfonos</small>{% for t in telefonos %}{{ t.telefono }} ({{ t.tipo }})<br>{% else %}—{% endfor %}</div>
+    <div><small>Tipo sanguíneo</small><b>{{Donante[8]}}</b></div>
+    <div><small>Fecha de nacimiento</small>{{Donante[4]|fecha}} ({{Donante[6]}} años)</div>
+    <div><small>Sexo</small>{{Donante[7]}}</div>
+    <div><small>Correo</small>{{Donante[5] or '—'}}</div>
+    <div><small>Teléfonos</small>{% for t in Telefonos %}{{t[0]}} ({{t[1]}})<br>{% else %}—{% endfor %}</div>
   </div>
 </div>
 
@@ -29,20 +28,32 @@
   <h2>Historial de donaciones</h2>
   <div class="tabla"><table>
     <tr><th>Donación</th><th>Fecha</th><th>Tipo</th><th>Institución</th><th>ml</th><th>Unidades</th><th>Estado</th></tr>
-    {% for h in historial %}
-    <tr><td>{{ h.id_donacion }}</td><td>{{ h.fecha_hora_inicio|fechahora }}</td><td>{{ h.tipo }}</td><td>{{ h.institucion }}</td>
-        <td>{{ h.volumen_ml or '' }}</td><td>{{ h.unidades }}</td><td>{{ etiqueta(h.estado) }}</td></tr>
-    {% else %}<tr><td colspan="7" class="vacio">Sin donaciones registradas.</td></tr>{% endfor %}
+    {% for h in Historial %}
+    <tr>
+      <td>{{h[0]}}</td>
+      <td>{{h[1]|fechahora}}</td>
+      <td>{{h[2]}}</td>
+      <td>{{h[3]}}</td>
+      <td>{{h[4] or ''}}</td>
+      <td>{{h[6]}}</td>
+      <td><span class="etiqueta {{h[5]|lower}}">{{h[5]}}</span></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="vacio">Sin donaciones registradas.</td></tr>
+    {% endfor %}
   </table></div>
 </div>
 
-{% if organos %}
+{% if Organos %}
 <div class="panel">
   <h2>Órganos donados</h2>
   <div class="tabla"><table>
     <tr><th>Folio</th><th>Órgano</th><th>Extracción</th><th>Estado</th></tr>
-    {% for o in organos %}<tr><td>{{ o.folio }}</td><td>{{ o.organo }}</td><td>{{ o.fecha_hora|fechahora }}</td><td>{{ etiqueta(o.estado) }}</td></tr>{% endfor %}
+    {% for o in Organos %}
+    <tr><td>{{o[0]}}</td><td>{{o[1]}}</td><td>{{o[2]|fechahora}}</td><td><span class="etiqueta {{o[3]|lower}}">{{o[3]}}</span></td></tr>
+    {% endfor %}
   </table></div>
 </div>
 {% endif %}
-{% endblock %}
+
+{% include 'pie.html' %}

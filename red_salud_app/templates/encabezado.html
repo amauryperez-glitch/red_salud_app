@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Red de Salud</title>
+<link rel="stylesheet" href="{{url_for('static', filename='css/estilos.css')}}">
+</head>
+<body>
+<div class="app">
+
+<aside class="lateral">
+  <div class="marca">
+    <div class="logo">RS</div>
+    <div><b>Red de Salud</b><small>Bancos de sangre y órganos</small></div>
+  </div>
+
+  {% set ruta = request.path %}
+  <nav>
+    <a class="enlace {% if ruta == '/inicio' %}activo{% endif %}" href="/inicio">Inicio</a>
+
+    {% if tiene('Registrar donaciones') or tiene('Validar resultados de laboratorio') or tiene('Registrar estudios') or tiene('Registrar evaluaciones de órganos') %}
+    <div class="grupo">Donación</div>
+    {% if tiene('Registrar donaciones') %}
+    <a class="enlace {% if 'donante' in ruta %}activo{% endif %}" href="/donantes">Donantes</a>
+    {% endif %}
+    {% if tiene('Registrar donaciones') or tiene('Validar resultados de laboratorio') or tiene('Registrar estudios') %}
+    <a class="enlace {% if ruta == '/donaciones' %}activo{% endif %}" href="/donaciones">Donaciones y laboratorio</a>
+    {% endif %}
+    {% if tiene('Registrar evaluaciones de órganos') %}
+    <a class="enlace {% if ruta == '/organos' %}activo{% endif %}" href="/organos">Órganos</a>
+    {% endif %}
+    {% endif %}
+
+    {% if tiene('Registrar solicitudes') or tiene('Consultar compatibilidad') or tiene('Aprobar asignaciones') or tiene('Gestionar traslados') or tiene('Confirmar recepciones') or tiene('Registrar utilización de recursos') %}
+    <div class="grupo">Solicitudes</div>
+    {% if tiene('Registrar solicitudes') %}
+    <a class="enlace {% if ruta == '/receptores' %}activo{% endif %}" href="/receptores">Receptores</a>
+    {% endif %}
+    {% if tiene('Registrar solicitudes') or tiene('Consultar compatibilidad') %}
+    <a class="enlace {% if 'solicitud' in ruta or 'matching' in ruta %}activo{% endif %}" href="/solicitudes">Solicitudes y matching</a>
+    {% endif %}
+    {% if tiene('Aprobar asignaciones') or tiene('Gestionar traslados') or tiene('Confirmar recepciones') or tiene('Registrar utilización de recursos') %}
+    <a class="enlace {% if ruta == '/asignaciones' %}activo{% endif %}" href="/asignaciones">Asignaciones</a>
+    {% endif %}
+    {% endif %}
+
+    {% if tiene('Consultar inventario y alertas') or tiene('Registrar descartes') or tiene('Gestionar traslados') or tiene('Confirmar recepciones') or tiene('Consultar reportes regionales') %}
+    <div class="grupo">Seguimiento</div>
+    {% if tiene('Consultar inventario y alertas') or tiene('Registrar descartes') %}
+    <a class="enlace {% if ruta == '/inventario' %}activo{% endif %}" href="/inventario">Inventario</a>
+    {% endif %}
+    {% if tiene('Gestionar traslados') or tiene('Confirmar recepciones') %}
+    <a class="enlace {% if ruta == '/traslados' %}activo{% endif %}" href="/traslados">Traslados</a>
+    {% endif %}
+    {% if tiene('Consultar reportes regionales') %}
+    <a class="enlace {% if ruta == '/reportes' %}activo{% endif %}" href="/reportes">Reportes</a>
+    {% endif %}
+    {% endif %}
+
+    {% if tiene('Gestionar usuarios y roles') %}
+    <div class="grupo">Administración</div>
+    <a class="enlace {% if 'personal' in ruta or 'empleado' in ruta %}activo{% endif %}" href="/personal">Personal y usuarios</a>
+    {% endif %}
+  </nav>
+
+  <div class="usuario-caja">
+    <div class="fila">
+      <div class="avatar">{{session['nombre'][0]}}</div>
+      <div>
+        <b>{{session['nombre']}}</b>
+        <small>{{session['roles']}}</small>
+        <small>{{session['institucion']}}</small>
+      </div>
+    </div>
+    <a class="cambiar" href="/salir">Cerrar sesión</a>
+  </div>
+</aside>
+
+<main class="contenido">
+{% if request.args.get('ok') %}<div class="mensaje ok">{{request.args.get('ok')}}</div>{% endif %}
+{% if request.args.get('error') %}<div class="mensaje error"><b>No se pudo:</b> {{request.args.get('error')}}</div>{% endif %}

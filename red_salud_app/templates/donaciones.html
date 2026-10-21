@@ -1,7 +1,5 @@
-{% extends 'base.html' %}
-{% from '_macros.html' import opciones, etiqueta %}
-{% block titulo %}Donaciones{% endblock %}
-{% block contenido %}
+{% include 'encabezado.html' %}
+
 <h1 class="titulo">Donaciones y laboratorio</h1>
 <p class="sub">Registro de donaciones, resultados de laboratorio y separación en componentes</p>
 
@@ -9,10 +7,14 @@
 <details class="nuevo">
   <summary>+ Registrar donación</summary>
   <div class="cuerpo">
-  <form action="{{ url_for('donacion_registrar') }}" method="POST" class="validar">
+  <!-- inicio formulario -->
+  <form action="/registradonacion" method="POST" class="validar">
     <div class="campos">
       <div><label for="id_donante">Donante (solo Activos) *</label>
-           <select id="id_donante" name="id_donante" required>{{ opciones(donantes_activos, None, 'Selecciona') }}</select></div>
+           <select id="id_donante" name="id_donante" required>
+             <option value="">Selecciona</option>
+             {% for d in Donantes %}<option value="{{d[0]}}">{{d[1]}}</option>{% endfor %}
+           </select></div>
       <div><label for="volumen_ml">Volumen (ml) *</label>
            <input type="number" id="volumen_ml" name="volumen_ml" value="450" min="400" max="500" required></div>
       <div><label for="folio_consentimiento">Folio del consentimiento informado *</label>
@@ -20,47 +22,55 @@
       <div><label for="observaciones">Observaciones</label>
            <input type="text" id="observaciones" name="observaciones"></div>
     </div>
-    <p class="ayuda">Se registra en tu institución: {{ session['institucion'] }}. Deben pasar 56 días entre donaciones.</p>
+    <p class="ayuda">Se registra en tu institución: {{session['institucion']}}. Deben pasar 56 días entre donaciones.</p>
     <button class="btn" type="submit">Guardar</button>
   </form>
+  <!-- fin formulario -->
   </div>
 </details>
 {% endif %}
 
-<form class="filtros" method="GET">
-  <select name="estado">{{ opciones(estados_donacion, estado, 'Todos los estados') }}</select>
+<form class="filtros" action="/donaciones" method="GET">
+  <select name="estado">
+    <option value="">Todos los estados</option>
+    {% for e in Estados %}<option value="{{e[0]}}" {% if request.args.get('estado') == e[0]|string %}selected{% endif %}>{{e[1]}}</option>{% endfor %}
+  </select>
   <button class="btn btn-sec" type="submit">Filtrar</button>
 </form>
 
 <div class="tabla"><table>
   <tr><th>Id</th><th>Donante</th><th>Tipo</th><th>Institución</th><th>Fecha</th><th>ml</th><th>Estado</th><th>Acción</th></tr>
-  {% for d in donaciones %}
+  {% for d in Donaciones %}
   <tr>
-    <td>{{ d.id_donacion }}</td>
-    <td>{% if tiene('Registrar donaciones') %}<a href="{{ url_for('donante_detalle', id_donante=d.id_donante) }}">{{ d.donante }}</a>{% else %}{{ d.donante }}{% endif %}</td>
-    <td><b>{{ d.tipo_sangre }}</b></td>
-    <td>{{ d.institucion }}</td>
-    <td>{{ d.fecha_hora_inicio|fechahora }}</td>
-    <td>{{ d.volumen_ml or '' }}</td>
-    <td>{{ etiqueta(d.estado) }}</td>
+    <td>{{d[0]}}</td>
+    <td>{% if tiene('Registrar donaciones') %}<a href="/donante/{{d[1]}}">{{d[2]}}</a>{% else %}{{d[2]}}{% endif %}</td>
+    <td><b>{{d[3]}}</b></td>
+    <td>{{d[4]}}</td>
+    <td>{{d[5]|fechahora}}</td>
+    <td>{{d[6] or ''}}</td>
+    <td><span class="etiqueta {{d[7]|lower}}">{{d[7]}}</span></td>
     <td>
-      {% if d.estado == 'Pendiente' and tiene('Validar resultados de laboratorio') %}
+      {% if d[7] == 'Pendiente' and tiene('Validar resultados de laboratorio') %}
       <details class="accion"><summary>Resultado</summary>
         <div class="caja-accion">
-        <form action="{{ url_for('donacion_resultado') }}" method="POST">
-          <input type="hidden" name="id_donacion" value="{{ d.id_donacion }}">
-          {% for campo, texto in [('vih','VIH'), ('hepatitis_b','Hepatitis B'), ('hepatitis_c','Hepatitis C'), ('sifilis','Sífilis')] %}
-          <label>{{ texto }}</label>
-          <select name="{{ campo }}"><option value="No reactivo">No reactivo</option><option value="Reactivo">Reactivo</option></select>
-          {% endfor %}
+        <form action="/resultadolaboratorio" method="POST">
+          <input type="hidden" name="id_donacion" value="{{d[0]}}">
+          <label>VIH</label>
+          <select name="vih"><option value="No reactivo">No reactivo</option><option value="Reactivo">Reactivo</option></select>
+          <label>Hepatitis B</label>
+          <select name="hepatitis_b"><option value="No reactivo">No reactivo</option><option value="Reactivo">Reactivo</option></select>
+          <label>Hepatitis C</label>
+          <select name="hepatitis_c"><option value="No reactivo">No reactivo</option><option value="Reactivo">Reactivo</option></select>
+          <label>Sífilis</label>
+          <select name="sifilis"><option value="No reactivo">No reactivo</option><option value="Reactivo">Reactivo</option></select>
           <button class="btn btn-chico separado" type="submit">Guardar resultado</button>
         </form>
         </div>
       </details>
       {% endif %}
-      {% if d.estado == 'Aceptada' and tiene('Registrar estudios') %}
-      <form class="linea" action="{{ url_for('donacion_fraccionar') }}" method="POST">
-        <input type="hidden" name="id_donacion" value="{{ d.id_donacion }}">
+      {% if d[7] == 'Aceptada' and tiene('Registrar estudios') %}
+      <form class="linea" action="/fraccionar" method="POST">
+        <input type="hidden" name="id_donacion" value="{{d[0]}}">
         <button class="btn btn-chico" type="submit">Fraccionar</button>
       </form>
       {% endif %}
@@ -70,4 +80,5 @@
   <tr><td colspan="8" class="vacio">No hay donaciones con ese filtro.</td></tr>
   {% endfor %}
 </table></div>
-{% endblock %}
+
+{% include 'pie.html' %}

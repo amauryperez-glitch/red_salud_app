@@ -1,31 +1,28 @@
-{% extends 'base.html' %}
-{% from '_macros.html' import opciones, etiqueta %}
-{% block titulo %}Asignaciones{% endblock %}
-{% block contenido %}
+{% include 'encabezado.html' %}
+
 <h1 class="titulo">Asignaciones activas</h1>
 <p class="sub">Recursos asignados pendientes de traslado, recepción, transfusión o trasplante</p>
 
 <div class="tabla"><table>
   <tr><th>Asignación</th><th>Solicitud</th><th>Receptor</th><th>Recurso</th><th>Dónde está</th><th>Destino</th><th>Estado</th><th>Acción</th></tr>
-  {% for a in asignaciones %}
-  {% set en_destino = a.donde_esta == a.destino %}
+  {% for a in Asignaciones %}
   <tr>
-    <td>{{ a.id_asignacion }}</td>
-    <td>{{ a.id_solicitud }}</td>
-    <td>{{ a.receptor }}</td>
-    <td>{{ a.folio }} · {{ a.recurso }} <b>{{ a.tipo_sangre }}</b></td>
-    <td>{{ a.donde_esta }}</td>
-    <td>{{ a.destino }}</td>
-    <td>{{ etiqueta(a.estado) }}</td>
+    <td>{{a[0]}}</td>
+    <td>{{a[1]}}</td>
+    <td>{{a[8]}}</td>
+    <td>{{a[2]}} · {{a[11]}} <b>{{a[3]}}</b></td>
+    <td>{{a[4]}}</td>
+    <td>{{a[5]}}</td>
+    <td><span class="etiqueta {{a[6]|lower|replace(' ', '-')}}">{{a[6]}}</span></td>
     <td>
-      {# 1) reservada en el banco: logística la envía #}
-      {% if a.estado == 'Reservado' and not en_destino and tiene('Gestionar traslados') %}
+      {# 1) reservada en el banco: logistica la envia #}
+      {% if a[6] == 'Reservado' and a[4] != a[5] and tiene('Gestionar traslados') %}
       <details class="accion"><summary>Enviar</summary>
         <div class="caja-accion">
-        <form action="{{ url_for('programar_traslado') }}" method="POST" class="validar">
-          <input type="hidden" name="id_asignacion" value="{{ a.id_asignacion }}">
+        <form action="/programartraslado" method="POST" class="validar">
+          <input type="hidden" name="id_asignacion" value="{{a[0]}}">
           <label>Medio</label>
-          <select name="id_medio">{{ opciones(medios_transporte) }}</select>
+          <select name="id_medio">{% for m in Medios %}<option value="{{m[0]}}">{{m[1]}}</option>{% endfor %}</select>
           <label class="separado">Minutos estimados</label>
           <input type="number" name="minutos" value="40" min="1" max="1440" required>
           <button class="btn btn-chico separado" type="submit">Registrar salida</button>
@@ -34,14 +31,14 @@
       </details>
       {% endif %}
 
-      {# 2) en camino: la recibe el destino (o logística confirma la entrega) #}
-      {% if a.estado == 'En traslado' and tiene('Confirmar recepciones') and (session['id_institucion'] == a.id_destino or tiene('Gestionar traslados')) %}
+      {# 2) va en camino: la recibe el destino (o logistica confirma la entrega) #}
+      {% if a[6] == 'En traslado' and tiene('Confirmar recepciones') and (session['id_institucion'] == a[9] or tiene('Gestionar traslados')) %}
       <details class="accion"><summary>Recibir</summary>
         <div class="caja-accion">
-        <form action="{{ url_for('registrar_recepcion') }}" method="POST">
-          <input type="hidden" name="id_traslado" value="{{ a.id_traslado }}">
+        <form action="/registrarecepcion" method="POST">
+          <input type="hidden" name="id_traslado" value="{{a[7]}}">
           <label>Resultado</label>
-          <select name="id_resultado">{{ opciones(resultados_recepcion) }}</select>
+          <select name="id_resultado">{% for r in ResRecepcion %}<option value="{{r[0]}}">{{r[1]}}</option>{% endfor %}</select>
           <label class="separado">Observaciones (obligatorio si se rechaza)</label>
           <input type="text" name="observaciones">
           <button class="btn btn-chico separado" type="submit">Confirmar recepción</button>
@@ -50,24 +47,24 @@
       </details>
       {% endif %}
 
-      {# 3) sangre ya en el hospital: transfusión #}
-      {% if a.id_tipo_recurso == 1 and a.estado == 'Reservado' and en_destino and tiene('Registrar utilización de recursos') and session['id_institucion'] == a.id_destino %}
+      {# 3) sangre ya en el hospital: transfusion #}
+      {% if a[10] == 1 and a[6] == 'Reservado' and a[4] == a[5] and tiene('Registrar utilización de recursos') and session['id_institucion'] == a[9] %}
       <details class="accion"><summary>Transfundir</summary>
         <div class="caja-accion">
-        <form action="{{ url_for('registrar_transfusion') }}" method="POST">
-          <input type="hidden" name="id_asignacion" value="{{ a.id_asignacion }}">
+        <form action="/registratransfusion" method="POST">
+          <input type="hidden" name="id_asignacion" value="{{a[0]}}">
           <label>Resultado</label>
-          <select name="id_resultado">{{ opciones(resultados_transfusion) }}</select>
+          <select name="id_resultado">{% for r in ResTransfusion %}<option value="{{r[0]}}">{{r[1]}}</option>{% endfor %}</select>
           <button class="btn btn-chico separado" type="submit">Registrar transfusión</button>
         </form>
         </div>
       </details>
       {% endif %}
 
-      {# 4) órgano ya en la institución: trasplante #}
-      {% if a.id_tipo_recurso == 2 and a.estado == 'Reservado' and en_destino and tiene('Registrar utilización de recursos') and session['id_institucion'] == a.id_destino %}
-      <form class="linea" action="{{ url_for('registrar_trasplante') }}" method="POST" data-confirmar="¿Registrar el trasplante?">
-        <input type="hidden" name="id_asignacion" value="{{ a.id_asignacion }}">
+      {# 4) organo ya en la institucion: trasplante #}
+      {% if a[10] == 2 and a[6] == 'Reservado' and a[4] == a[5] and tiene('Registrar utilización de recursos') and session['id_institucion'] == a[9] %}
+      <form class="linea" action="/registratrasplante" method="POST" data-confirmar="¿Registrar el trasplante?">
+        <input type="hidden" name="id_asignacion" value="{{a[0]}}">
         <button class="btn btn-chico" type="submit">Registrar trasplante</button>
       </form>
       {% endif %}
@@ -77,4 +74,5 @@
   <tr><td colspan="8" class="vacio">No hay asignaciones activas.</td></tr>
   {% endfor %}
 </table></div>
-{% endblock %}
+
+{% include 'pie.html' %}
